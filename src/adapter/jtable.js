@@ -26,14 +26,13 @@
                     return table.ui._dialogs[name + "Dialog"];
                 };
             });
-
-            editor.addListener('mousedown', function (t, evt) {
+            table.addListener('mousedown', function (t, evt) {
                 var el = evt.target || evt.srcElement;
                 JT.ui.Popup.postHide(evt, el);
                 JT.ui.ShortCutMenu.postHide(evt);
 
             });
-            editor.addListener("delcells", function () {
+            table.addListener("delcells", function () {
                 if (UE.ui['edittip']) {
                     new UE.ui['edittip'](editor);
                 }
@@ -41,19 +40,19 @@
             });
 
             var pastePop, isPaste = false, timer;
-            // editor.addListener("afterpaste", function () {
-            //     if(editor.queryCommandState('pasteplain'))
-            //         return;
-            //     if(baidu.editor.ui.PastePicker){
-            //         pastePop = new baidu.editor.ui.Popup({
-            //             content:new baidu.editor.ui.PastePicker({editor:editor}),
-            //             editor:editor,
-            //             className:'edui-wordpastepop'
-            //         });
-            //         pastePop.render();
-            //     }
-            //     isPaste = true;
-            // });
+            table.addListener("afterpaste", function () {
+                if(editor.queryCommandState('pasteplain'))
+                    return;
+                if(baidu.editor.ui.PastePicker){
+                    pastePop = new baidu.editor.ui.Popup({
+                        content:new baidu.editor.ui.PastePicker({editor:editor}),
+                        editor:editor,
+                        className:'edui-wordpastepop'
+                    });
+                    pastePop.render();
+                }
+                isPaste = true;
+            });
 
             table.addListener("afterinserthtml", function () {
                 clearTimeout(timer);
@@ -80,15 +79,15 @@
             table.addListener('contextmenu', function (t, evt) {
                 JT.ui.Popup.postHide(evt);
             });
-            // table.addListener('selectionchange', function () {
-            //     if (editor.options.elementPathEnabled) {
-            //         me[(editor.queryCommandState('elementpath') == -1 ? 'dis' : 'en') + 'ableElementPath']()
-            //     }
-            //     if (editor.options.scaleEnabled) {
-            //         me[(editor.queryCommandState('scale') == -1 ? 'dis' : 'en') + 'ableScale']();
-            //
-            //     }
-            // });
+            table.addListener('selectionchange', function () {
+                if (editor.options.elementPathEnabled) {
+                    me[(editor.queryCommandState('elementpath') == -1 ? 'dis' : 'en') + 'ableElementPath']()
+                }
+                if (editor.options.scaleEnabled) {
+                    me[(editor.queryCommandState('scale') == -1 ? 'dis' : 'en') + 'ableScale']();
+
+                }
+            });
             var popup = new JT.ui.Popup({
                 editor:editor,
                 content:'',

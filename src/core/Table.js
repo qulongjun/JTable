@@ -22,58 +22,7 @@
 (function () {
     var uid = 0, _selectionChangeTimer;
 
-    /**
-     * 获取编辑器的html内容，赋值到编辑器所在表单的textarea文本域里面
-     * @private
-     * @method setValue
-     * @param { UE.Editor } editor 编辑器事例
-     */
-    function setValue(form, editor) {
-        var textarea;
-        if (editor.textarea) {
-            if (utils.isString(editor.textarea)) {
-                for (var i = 0, ti, tis = domUtils.getElementsByTagName(form, 'textarea'); ti = tis[i++];) {
-                    if (ti.id == 'ueditor_textarea_' + editor.options.textarea) {
-                        textarea = ti;
-                        break;
-                    }
-                }
-            } else {
-                textarea = editor.textarea;
-            }
-        }
-        if (!textarea) {
-            form.appendChild(textarea = domUtils.createElement(document, 'textarea', {
-                'name': editor.options.textarea,
-                'id': 'ueditor_textarea_' + editor.options.textarea,
-                'style': "display:none"
-            }));
-            //不要产生多个textarea
-            editor.textarea = textarea;
-        }
-        !textarea.getAttribute('name') && textarea.setAttribute('name', editor.options.textarea );
-        textarea.value = editor.hasContents() ?
-            (editor.options.allHtmlEnabled ? editor.getAllHtml() : editor.getContent(null, null, true)) :
-            ''
-    }
-    function loadPlugins(me){
-        //初始化插件
-        for (var pi in UE.plugins) {
-            UE.plugins[pi].call(me);
-        }
 
-    }
-    function checkCurLang(I18N){
-        for(var lang in I18N){
-            return lang
-        }
-    }
-
-    function langReadied(me){
-        me.langIsReady = true;
-
-        me.fireEvent("langReady");
-    }
 
     /**
      * 编辑器准备就绪后会触发该事件
@@ -228,37 +177,10 @@
     var Table = JT.Table = function (options) {
         var me = this;
         me.uid = uid++;
-        //EventBase.call(me);
+        me.EventBase=EventBase.prototype;
         me.commands = {};
         me.options = utils.extend(utils.clone(options || {}), JTABLE_CONFIG, true);
-        //me.shortcutkeys = {};
-        //me.inputRules = [];
-        //me.outputRules = [];
-        //设置默认的常用属性
-        //me.setOpt(Editor.defaultOptions(me));
-
-        /* 尝试异步加载后台配置 */
-        //me.loadServerConfig();
-
-        // if(!utils.isEmptyObject(UE.I18N)){
-        //     //修改默认的语言类型
-        //     me.options.lang = checkCurLang(UE.I18N);
-        //     UE.plugin.load(me);
-        //     langReadied(me);
-        //
-        // }else{
-        //     utils.loadFile(document, {
-        //         src: me.options.langPath + me.options.lang + "/" + me.options.lang + ".js",
-        //         tag: "script",
-        //         type: "text/javascript",
-        //         defer: "defer"
-        //     }, function () {
-        //         UE.plugin.load(me);
-        //         langReadied(me);
-        //     });
-        // }
-
-        JT.instants['ueditorInstant' + me.uid] = me;
+        JT.instants['tableInstant' + me.uid] = me;
     };
     Table.prototype = {
          registerCommand : function(name,obj){
@@ -311,18 +233,18 @@
          * } );
          * ```
          */
-        setOpt: function (key, val) {
-            var obj = {};
-            if (utils.isString(key)) {
-                obj[key] = val
-            } else {
-                obj = key;
-            }
-            utils.extend(this.options, obj, true);
-        },
-        getOpt:function(key){
-            return this.options[key]
-        },
+        // setOpt: function (key, val) {
+        //     var obj = {};
+        //     if (utils.isString(key)) {
+        //         obj[key] = val
+        //     } else {
+        //         obj = key;
+        //     }
+        //     utils.extend(this.options, obj, true);
+        // },
+        // getOpt:function(key){
+        //     return this.options[key]
+        // },
         /**
          * 销毁编辑器实例，使用textarea代替
          * @method destroy
@@ -332,24 +254,13 @@
          * ```
          */
         destroy: function () {
-
             var me = this;
             me.fireEvent('destroy');
-            var container = me.container.parentNode;
-            var textarea = me.textarea;
-            if (!textarea) {
-                textarea = document.createElement('textarea');
-                container.parentNode.insertBefore(textarea, container);
-            } else {
-                textarea.style.display = ''
-            }
-
-            textarea.style.width = me.iframe.offsetWidth + 'px';
-            textarea.style.height = me.iframe.offsetHeight + 'px';
-            textarea.value = me.getContent();
-            textarea.id = me.key;
+            var container = me.container;
             container.innerHTML = '';
-            domUtils.remove(container);
+            if(me.options.destoryContainer){
+                domUtils.remove(container);
+            }
             var key = me.key;
             //trace:2004
             for (var p in me) {
@@ -357,7 +268,7 @@
                     delete this[p];
                 }
             }
-            UE.delEditor(key);
+            JT.delTable(key);
         },
 
         /**
@@ -376,206 +287,34 @@
          * @warning 必须且只能调用一次
          */
         render: function (container) {
-            alert("aaa");
-//             var me = this,
-//                 options = me.options,
-//                 getStyleValue=function(attr){
-//                     return parseInt(domUtils.getComputedStyle(container,attr));
-//                 };
-//             if (utils.isString(container)) {
-//                 container = document.getElementById(container);
-//             }
-//             if (container) {
-//                 if(options.initialFrameWidth){
-//                     options.minFrameWidth = options.initialFrameWidth
-//                 }else{
-//                     options.minFrameWidth = options.initialFrameWidth = container.offsetWidth;
-//                 }
-//                 if(options.initialFrameHeight){
-//                     options.minFrameHeight = options.initialFrameHeight
-//                 }else{
-//                     options.initialFrameHeight = options.minFrameHeight = container.offsetHeight;
-//                 }
-//
-//                 container.style.width = /%$/.test(options.initialFrameWidth) ?  '100%' : options.initialFrameWidth-
-//                     getStyleValue("padding-left")- getStyleValue("padding-right") +'px';
-//                 container.style.height = /%$/.test(options.initialFrameHeight) ?  '100%' : options.initialFrameHeight -
-//                     getStyleValue("padding-top")- getStyleValue("padding-bottom") +'px';
-//
-//                 container.style.zIndex = options.zIndex;
-//
-//                 var html = ( ie && browser.version < 9  ? '' : '<!DOCTYPE html>') +
-//                     '<html xmlns=\'http://www.w3.org/1999/xhtml\' class=\'view\' ><head>' +
-//                     '<style type=\'text/css\'>' +
-//                     //设置四周的留边
-//                     '.view{padding:0;word-wrap:break-word;cursor:text;height:90%;}\n' +
-//                     //设置默认字体和字号
-//                     //font-family不能呢随便改，在safari下fillchar会有解析问题
-//                     'body{margin:8px;font-family:sans-serif;font-size:16px;}' +
-//                     //设置段落间距
-//                     'p{margin:5px 0;}</style>' +
-//                     ( options.iframeCssUrl ? '<link rel=\'stylesheet\' type=\'text/css\' href=\'' + utils.unhtml(options.iframeCssUrl) + '\'/>' : '' ) +
-//                     (options.initialStyle ? '<style>' + options.initialStyle + '</style>' : '') +
-//                     '</head><body class=\'view\' ></body>' +
-//                     '<script type=\'text/javascript\' ' + (ie ? 'defer=\'defer\'' : '' ) +' id=\'_initialScript\'>' +
-//                     'setTimeout(function(){editor = window.parent.UE.instants[\'ueditorInstant' + me.uid + '\'];editor._setup(document);},0);' +
-//                     'var _tmpScript = document.getElementById(\'_initialScript\');_tmpScript.parentNode.removeChild(_tmpScript);</script></html>';
-//                 container.appendChild(domUtils.createElement(document, 'iframe', {
-//                     id: 'ueditor_' + me.uid,
-//                     width: "100%",
-//                     height: "100%",
-//                     frameborder: "0",
-//                     //先注释掉了，加的原因忘记了，但开启会直接导致全屏模式下内容多时不会出现滚动条
-// //                    scrolling :'no',
-//                     src: 'javascript:void(function(){document.open();' + (options.customDomain && document.domain != location.hostname ?  'document.domain="' + document.domain + '";' : '') +
-//                         'document.write("' + html + '");document.close();}())'
-//                 }));
-//                 container.style.overflow = 'hidden';
-//                 //解决如果是给定的百分比，会导致高度算不对的问题
-//                 setTimeout(function(){
-//                     if( /%$/.test(options.initialFrameWidth)){
-//                         options.minFrameWidth = options.initialFrameWidth = container.offsetWidth;
-//                         //如果这里给定宽度，会导致ie在拖动窗口大小时，编辑区域不随着变化
-// //                        container.style.width = options.initialFrameWidth + 'px';
-//                     }
-//                     if(/%$/.test(options.initialFrameHeight)){
-//                         options.minFrameHeight = options.initialFrameHeight = container.offsetHeight;
-//                         container.style.height = options.initialFrameHeight + 'px';
-//                     }
-//                 })
-//             }
-        },
-
-        /**
-         * 编辑器初始化
-         * @method _setup
-         * @private
-         * @param { Element } doc 编辑器Iframe中的文档对象
-         */
-        _setup: function (doc) {
-
             var me = this,
-                options = me.options;
-            if (ie) {
-                doc.body.disabled = true;
-                doc.body.contentEditable = true;
-                doc.body.disabled = false;
-            } else {
-                doc.body.contentEditable = true;
-            }
-            doc.body.spellcheck = false;
-            me.document = doc;
-            me.window = doc.defaultView || doc.parentWindow;
-            me.iframe = me.window.frameElement;
-            me.body = doc.body;
+                options = me.options,
+                doc=document.getElementById(container);
+                doc.setAttribute("table-id",'tableInstant' + me.uid);
             me.selection = new dom.Selection(doc);
+            me.container=me.document=doc;
+            if (ie) {
+                doc.disabled = true;
+                doc.contentEditable = false;
+                doc.disabled = false;
+            } else {
+                doc.contentEditable = false;
+            }
+            doc.spellcheck = false;
+
             //gecko初始化就能得到range,无法判断isFocus了
             var geckoSel;
             if (browser.gecko && (geckoSel = this.selection.getNative())) {
                 geckoSel.removeAllRanges();
             }
-            this._initEvents();
-            //为form提交提供一个隐藏的textarea
-            for (var form = this.iframe.parentNode; !domUtils.isBody(form); form = form.parentNode) {
-                if (form.tagName == 'FORM') {
-                    me.form = form;
-                    if(me.options.autoSyncData){
-                        domUtils.on(me.window,'blur',function(){
-                            setValue(form,me);
-                        });
-                    }else{
-                        domUtils.on(form, 'submit', function () {
-                            setValue(this, me);
-                        });
-                    }
-                    break;
-                }
-            }
-            if (options.initialContent) {
-                if (options.autoClearinitialContent) {
-                    var oldExecCommand = me.execCommand;
-                    me.execCommand = function () {
-                        me.fireEvent('firstBeforeExecCommand');
-                        return oldExecCommand.apply(me, arguments);
-                    };
-                    this._setDefaultContent(options.initialContent);
-                } else
-                    this.setContent(options.initialContent, false, true);
-            }
-
-            //编辑器不能为空内容
-
-            if (domUtils.isEmptyNode(me.body)) {
-                me.body.innerHTML = '<p>' + (browser.ie ? '' : '<br/>') + '</p>';
-            }
-            //如果要求focus, 就把光标定位到内容开始
-            if (options.focus) {
-                setTimeout(function () {
-                    me.focus(me.options.focusInEnd);
-                    //如果自动清除开着，就不需要做selectionchange;
-                    !me.options.autoClearinitialContent && me._selectionChange();
-                }, 0);
-            }
-            if (!me.container) {
-                me.container = this.iframe.parentNode;
-            }
-            if (options.fullscreen && me.ui) {
-                me.ui.setFullScreen(true);
-            }
-
-            try {
-                me.document.execCommand('2D-position', false, false);
-            } catch (e) {
-            }
-            try {
-                me.document.execCommand('enableInlineTableEditing', false, false);
-            } catch (e) {
-            }
-            try {
-                me.document.execCommand('enableObjectResizing', false, false);
-            } catch (e) {
-            }
-
-            //挂接快捷键
-            me._bindshortcutKeys();
-            me.isReady = 1;
-            me.fireEvent('ready');
+            //me.selection.document.innerHTML = '<table><tbody><tr class="firstRow"><td width="215" valign="top">1</td><td width="215" valign="top">2</td><td width="215" valign="top">3</td></tr><tr><td width="215" valign="top">4</td><td width="215" valign="top">5</td><td width="215" valign="top">6</td></tr></tbody></table>';
+            me.idReady=1;
             options.onready && options.onready.call(me);
-            if (!browser.ie9below) {
-                domUtils.on(me.window, ['blur', 'focus'], function (e) {
-                    //chrome下会出现alt+tab切换时，导致选区位置不对
-                    if (e.type == 'blur') {
-                        me._bakRange = me.selection.getRange();
-                        try {
-                            me._bakNativeRange = me.selection.getNative().getRangeAt(0);
-                            me.selection.getNative().removeAllRanges();
-                        } catch (e) {
-                            me._bakNativeRange = null;
-                        }
-
-                    } else {
-                        try {
-                            me._bakRange && me._bakRange.select();
-                        } catch (e) {
-                        }
-                    }
-                });
-            }
-            //trace:1518 ff3.6body不够寛，会导致点击空白处无法获得焦点
-            if (browser.gecko && browser.version <= 10902) {
-                //修复ff3.6初始化进来，不能点击获得焦点
-                me.body.contentEditable = false;
-                setTimeout(function () {
-                    me.body.contentEditable = true;
-                }, 100);
-                setInterval(function () {
-                    me.body.style.height = me.iframe.offsetHeight - 20 + 'px'
-                }, 100)
-            }
-
-            !options.isShow && me.setHide();
-            options.readonly && me.setDisabled();
+            me.execCommand("inserttable", options);
+            //this._initEvents();
         },
+
+
 
         /**
          * 设置编辑器高度
@@ -793,7 +532,8 @@
                 doc = me.document,
                 win = me.window;
             me._proxyDomEvent = utils.bind(me._proxyDomEvent, me);
-            domUtils.on(doc, ['click', 'contextmenu', 'mousedown', 'keydown', 'keyup', 'keypress', 'mouseup', 'mouseover', 'mouseout', 'selectstart'], me._proxyDomEvent);
+            //domUtils.on(doc, ['click', 'contextmenu', 'mousedown', 'keydown', 'keyup', 'keypress', 'mouseup', 'mouseover', 'mouseout', 'selectstart'], me._proxyDomEvent);
+            domUtils.on(doc, ['click', 'contextmenu', 'mousedown', 'keydown', 'keyup', 'keypress', 'mouseup', 'mouseover', 'mouseout'], me._proxyDomEvent);
             domUtils.on(win, ['focus', 'blur'], me._proxyDomEvent);
             domUtils.on(me.body,'drop',function(e){
                 //阻止ff下默认的弹出新页面打开图片
@@ -896,7 +636,7 @@
         _callCmdFn: function (fnName, args) {
             var cmdName = args[0].toLowerCase(),
                 cmd, cmdFn;
-            cmd = this.commands[cmdName] || UE.commands[cmdName];
+            cmd = this.commands[cmdName] || JT.commands[cmdName];
             cmdFn = cmd && cmd[fnName];
             //没有querycommandstate或者没有command的都默认返回0
             if ((!cmd || !cmdFn) && fnName == 'queryCommandState') {
@@ -921,10 +661,11 @@
             cmdName = cmdName.toLowerCase();
             var me = this,
                 result,
-                cmd = me.commands[cmdName] || UE.commands[cmdName];
+                cmd = me.commands[cmdName] || JT.commands[cmdName];
             if (!cmd || !cmd.execCommand) {
                 return null;
             }
+//            result = this._callCmdFn('execCommand', arguments);
             if (!cmd.notNeedUndo && !me.__hasEnterExecCommand) {
                 me.__hasEnterExecCommand = true;
                 if (me.queryCommandState.apply(me,arguments) != -1) {
@@ -1242,5 +983,5 @@
             }
         }
     };
-    //utils.inherits(Editor, EventBase);
+    utils.inherits(Table, EventBase);
 })();

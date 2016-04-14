@@ -964,15 +964,6 @@ var utils = JT.utils = {
         }
         return array;
     },
-    /**
-     * 判断给定的对象是否是数组
-     * @method isArray
-     * @param { * } object 需要判断的对象
-     * @return { Boolean } 给定的对象是否是数组
-     */
-    isArray:function (arr) {
-        return typeof arr == "object" && arr.constructor == Array;
-    },
     serializeParam:function (json) {
         var strArr = [];
         for (var i in json) {
@@ -1159,7 +1150,12 @@ var utils = JT.utils = {
  * @param { * } object 需要判断的对象
  * @return { Boolean } 给定的对象是否是字符串
  */
-
+/**
+ * 判断给定的对象是否是数组
+ * @method isArray
+ * @param { * } object 需要判断的对象
+ * @return { Boolean } 给定的对象是否是数组
+ */
 
 /**
  * 判断给定的对象是否是一个Function
@@ -1188,8 +1184,8 @@ var utils = JT.utils = {
  * @param { * } object 需要判断的对象
  * @return { Boolean } 给定的对象是否是普通对象
  */
-// utils.each(['String', 'Function', 'Array', 'Number', 'RegExp', 'Object', 'Date'], function (v) {
-//     UE.utils['is' + v] = function (obj) {
-//         return Object.prototype.toString.apply(obj) == '[object ' + v + ']';
-//     }
-// });
+utils.each(['String', 'Function', 'Array', 'Number', 'RegExp', 'Object', 'Date'], function (v) {
+    JT.utils['is' + v] = function (obj) {
+        return Object.prototype.toString.apply(obj) == '[object ' + v + ']';
+    }
+});

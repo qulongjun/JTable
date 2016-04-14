@@ -734,6 +734,7 @@ var domUtils = dom.domUtils = {
             k = types.length;
         if (k) while (k--) {
             type = types[k];
+            console.log(type);
             if (element.addEventListener) {
                 element.addEventListener(type, handler, false);
             } else {
@@ -1327,34 +1328,34 @@ var domUtils = dom.domUtils = {
     //  * UE.dom.domUtils.unSelectable( document.body );
     //  * ```
     //  */
-    // unSelectable:ie && browser.ie9below || browser.opera ? function (node) {
-    //     //for ie9
-    //     node.onselectstart = function () {
-    //         return false;
-    //     };
-    //     node.onclick = node.onkeyup = node.onkeydown = function () {
-    //         return false;
-    //     };
-    //     node.unselectable = 'on';
-    //     node.setAttribute("unselectable", "on");
-    //     for (var i = 0, ci; ci = node.all[i++];) {
-    //         switch (ci.tagName.toLowerCase()) {
-    //             case 'iframe' :
-    //             case 'textarea' :
-    //             case 'input' :
-    //             case 'select' :
-    //                 break;
-    //             default :
-    //                 ci.unselectable = 'on';
-    //                 node.setAttribute("unselectable", "on");
-    //         }
-    //     }
-    // } : function (node) {
-    //     node.style.MozUserSelect =
-    //         node.style.webkitUserSelect =
-    //             node.style.msUserSelect =
-    //                 node.style.KhtmlUserSelect = 'none';
-    // },
+    unSelectable:ie && browser.ie9below || browser.opera ? function (node) {
+        //for ie9
+        node.onselectstart = function () {
+            return false;
+        };
+        node.onclick = node.onkeyup = node.onkeydown = function () {
+            return false;
+        };
+        node.unselectable = 'on';
+        node.setAttribute("unselectable", "on");
+        for (var i = 0, ci; ci = node.all[i++];) {
+            switch (ci.tagName.toLowerCase()) {
+                case 'iframe' :
+                case 'textarea' :
+                case 'input' :
+                case 'select' :
+                    break;
+                default :
+                    ci.unselectable = 'on';
+                    node.setAttribute("unselectable", "on");
+            }
+        }
+    } : function (node) {
+        node.style.MozUserSelect =
+            node.style.webkitUserSelect =
+                node.style.msUserSelect =
+                    node.style.KhtmlUserSelect = 'none';
+    },
     /**
      * 删除节点node上的指定属性名称的属性
      * @method  removeAttributes
