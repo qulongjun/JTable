@@ -1514,7 +1514,7 @@
                         this.setStart(txtNode, browser.webkit ? 1 : 0).collapse(true);
                     }
                 }
-                var nativeRange = this.document.createRange();
+                //var nativeRange = this.document.createRange();
                 if(this.collapsed && browser.opera && this.startContainer.nodeType == 1){
                     var child = this.startContainer.childNodes[this.startOffset];
                     if(!child){
@@ -1538,9 +1538,9 @@
                 }
                 //是createAddress最后一位算的不准，现在这里进行微调
                 checkOffset(this);
-                nativeRange.setStart(this.startContainer, this.startOffset);
-                nativeRange.setEnd(this.endContainer, this.endOffset);
-                sel.addRange(nativeRange);
+                //nativeRange.setStart(this.startContainer, this.startOffset);
+                //nativeRange.setEnd(this.endContainer, this.endOffset);
+                //sel.addRange(nativeRange);
             }
             return this;
         },

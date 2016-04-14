@@ -12,7 +12,7 @@
             return UT.getTableItemsByRange(editor);
         },
         getUETableBySelected = function (editor) {
-            return UT.getUETableBySelected(editor)
+            return UT.getJTableBySelected(editor)
         },
         getDefaultValue = function (editor, table) {
             return UT.getDefaultValue(editor, table);
@@ -54,6 +54,8 @@
             //todo其他属性
             !opt.tdvalign && (opt.tdvalign = me.options.tdvalign);
             me.execCommand("inserthtml", createTable(opt, tdWidth));
+            me.fireEvent('ready');
+
             //var createHtml=createTable(opt, tdWidth);
             //me.document.innerHTML=createHtml;
         }

@@ -34,7 +34,8 @@
         ,defaultRows:5
         ,defaultCols:5
         ,tdvalign:"center"
-        ,tableWidth:"300"
+        ,tableWidth:300
+        //,initialFrameWidth:200
 
 
 

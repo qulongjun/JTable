@@ -888,69 +888,74 @@ var utils = JT.utils = {
      * @grammar UE.utils.cssRule('body',document) => 返回指定key的样式，并且指定是哪个document
      * @grammar UE.utils.cssRule('body','') =>null //清空给定的key值的背景颜色
      */
-    // cssRule:browser.ie && browser.version != 11 ? function (key, style, doc) {
-    //     var indexList, index;
-    //     if(style === undefined || style && style.nodeType && style.nodeType == 9){
-    //         //获取样式
-    //         doc = style && style.nodeType && style.nodeType == 9 ? style : (doc || document);
-    //         indexList = doc.indexList || (doc.indexList = {});
-    //         index = indexList[key];
-    //         if(index !==  undefined){
-    //             return doc.styleSheets[index].cssText
-    //         }
-    //         return undefined;
-    //     }
-    //     doc = doc || document;
-    //     indexList = doc.indexList || (doc.indexList = {});
-    //     index = indexList[key];
-    //     //清除样式
-    //     if(style === ''){
-    //         if(index!== undefined){
-    //             doc.styleSheets[index].cssText = '';
-    //             delete indexList[key];
-    //             return true
-    //         }
-    //         return false;
-    //     }
-    //
-    //     //添加样式
-    //     if(index!== undefined){
-    //         sheetStyle =  doc.styleSheets[index];
-    //     }else{
-    //         sheetStyle = doc.createStyleSheet('', index = doc.styleSheets.length);
-    //         indexList[key] = index;
-    //     }
-    //     sheetStyle.cssText = style;
-    // }: function (key, style, doc) {
-    //     var head, node;
-    //     if(style === undefined || style && style.nodeType && style.nodeType == 9){
-    //         //获取样式
-    //         doc = style && style.nodeType && style.nodeType == 9 ? style : (doc || document);
-    //         node = doc.getElementById(key);
-    //         return node ? node.innerHTML : undefined;
-    //     }
-    //     doc = doc || document;
-    //     node = doc.getElementById(key);
-    //
-    //     //清除样式
-    //     if(style === ''){
-    //         if(node){
-    //             node.parentNode.removeChild(node);
-    //             return true
-    //         }
-    //         return false;
-    //     }
-    //
-    //     //添加样式
-    //     if(node){
-    //         node.innerHTML = style;
-    //     }else{
-    //         node = doc.createElement('style');
-    //         node.id = key;
-    //         node.innerHTML = style;
-    //         doc.getElementsByTagName('head')[0].appendChild(node);
-    //     }
-    // },
+    cssRule:browser.ie && browser.version != 11 ? function (key, style, doc) {
+        var indexList, index;
+        if(style === undefined || style && style.nodeType && style.nodeType == 9){
+            //获取样式
+            doc = style && style.nodeType && style.nodeType == 9 ? style : (doc || document);
+            indexList = doc.indexList || (doc.indexList = {});
+            index = indexList[key];
+            if(index !==  undefined){
+                return doc.styleSheets[index].cssText
+            }
+            return undefined;
+        }
+        doc = doc || document;
+        indexList = doc.indexList || (doc.indexList = {});
+        index = indexList[key];
+        //清除样式
+        if(style === ''){
+            if(index!== undefined){
+                doc.styleSheets[index].cssText = '';
+                delete indexList[key];
+                return true
+            }
+            return false;
+        }
+
+        //添加样式
+        if(index!== undefined){
+            sheetStyle =  doc.styleSheets[index];
+        }else{
+            sheetStyle = doc.createStyleSheet('', index = doc.styleSheets.length);
+            indexList[key] = index;
+        }
+        sheetStyle.cssText = style;
+    }: function (key, style, doc) {
+        var head, node;
+        if(style === undefined || style && style.nodeType && style.nodeType == 9){
+            //获取样式
+            doc = style && style.nodeType && style.nodeType == 9 ? style : (doc || document);
+            node = doc.getElementById(key);
+            return node ? node.innerHTML : undefined;
+        }
+        doc = doc || document;
+        node = doc.getElementById(key);
+
+        //清除样式
+        if(style === ''){
+            if(node){
+                node.parentNode.removeChild(node);
+                return true
+            }
+            return false;
+        }
+
+        //添加样式
+        // if(node){
+        //     node.innerHTML = style;
+        // }else{
+        //     node = doc.createElement('style');
+        //     node.id = key;
+        //     node.innerHTML = style;
+        //     $(doc).parents('html').find('head')[0].appendChild(node);
+        //
+        // }
+        var styleDom = doc.createElement('style');
+        styleDom.id = key;
+        styleDom.innerHTML = style;
+        $(node).parents('html').find('head')[0].appendChild(styleDom);
+    },
     sort:function(array,compareFn){
         compareFn = compareFn || function(item1, item2){ return item1.localeCompare(item2);};
         for(var i= 0,len = array.length; i<len; i++){

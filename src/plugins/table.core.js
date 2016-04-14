@@ -130,7 +130,7 @@
             //contenteditable="true"
             table.setAttribute("contenteditable",true);
             table.insertRow(0).insertCell(0).innerHTML = 'xxx';
-            editor.document.appendChild(table);
+            editor.container.appendChild(table);
             var td = table.getElementsByTagName('td')[0];
             tmpValue = domUtils.getComputedStyle(table, 'border-left-width');
             tableBorder = parseInt(borderMap[tmpValue] || tmpValue, 10);
@@ -163,7 +163,7 @@
      * 根据当前点击的td或者table获取索引对象
      * @param tdOrTable
      */
-    JTable.getJTable = function (tdOrTable) {
+    JTable.getUETable = function (tdOrTable) {
         var tag = tdOrTable.tagName.toLowerCase();
         tdOrTable = (tag == "td" || tag == "th" || tag == 'caption') ? domUtils.findParentByTagName(tdOrTable, "table", true) : tdOrTable;
         if (!tdOrTable.ueTable) {

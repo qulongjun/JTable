@@ -99,10 +99,10 @@ UE.plugins['tablesort'] = function () {
 
     me.ready(function () {
         //添加表格可排序的样式
-        utils.cssRule('tablesort',
-            'table.sortEnabled tr.firstRow th,table.sortEnabled tr.firstRow td{padding-right:20px;background-repeat: no-repeat;background-position: center right;' +
-                '   background-image:url(' + me.options.themePath + me.options.theme + '/images/sortable.png);}',
-            me.document);
+        // utils.cssRule('tablesort',
+        //     'table.sortEnabled tr.firstRow th,table.sortEnabled tr.firstRow td{padding-right:20px;background-repeat: no-repeat;background-position: center right;' +
+        //         '   background-image:url(' + me.options.themePath + me.options.theme + '/images/sortable.png);}',
+        //     me.document);
 
         //做单元格合并操作时,清除可排序标识
         me.addListener("afterexeccommand", function (type, cmd) {

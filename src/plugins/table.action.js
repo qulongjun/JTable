@@ -5,7 +5,7 @@
  * Time: 上午10:05
  * To change this template use File | Settings | File Templates.
  */
-UE.plugins['table'] = function () {
+JT.plugins['table'] = function () {
     var me = this,
         tabTimer = null,
         //拖动计时器
@@ -24,12 +24,12 @@ UE.plugins['table'] = function () {
         userActionStatus = null,
         //双击允许的时间范围
         dblclickTime = 360,
-        UT = UE.UETable,
+        UT = JT.JTable,
         getUETable = function (tdOrTable) {
             return UT.getUETable(tdOrTable);
         },
         getUETableBySelected = function (editor) {
-            return UT.getUETableBySelected(editor);
+            return UT.getJTableBySelected(editor);
         },
         getDefaultValue = function (editor, table) {
             return UT.getDefaultValue(editor, table);
@@ -116,7 +116,7 @@ UE.plugins['table'] = function () {
     me.ready(function () {
         utils.cssRule('table',
             //选中的td上的样式
-            '.selectTdClass{background-color:#edf5fa !important}' +
+                '.selectTdClass{background-color:#edf5fa !important}' +
                 'table.noBorderTable td,table.noBorderTable th,table.noBorderTable caption{border:1px dashed #ddd !important}' +
                 //插入的表格的默认样式
                 'table{margin-bottom:10px;border-collapse:collapse;display:table;}' +
@@ -126,8 +126,10 @@ UE.plugins['table'] = function () {
                 'table tr.firstRow th{border-top-width:2px;}' +
                 '.ue-table-interlace-color-single{ background-color: #fcfcfc; } .ue-table-interlace-color-double{ background-color: #f7faff; }' +
                 'td p{margin:0;padding:0;}', me.document);
-
         var tableCopyList, isFullCol, isFullRow;
+        me.on('click',function () {
+            alert('aaa');
+        })
         //注册del/backspace事件
         me.addListener('keydown', function (cmd, evt) {
             var me = this;
@@ -346,8 +348,8 @@ UE.plugins['table'] = function () {
                     }
 
                     var defaultValue = getDefaultValue(me),
-                        width = me.body.offsetWidth -
-                            (needIEHack ? parseInt(domUtils.getComputedStyle(me.body, 'margin-left'), 10) * 2 : 0) - defaultValue.tableBorder * 2 - (me.options.offsetWidth || 0);
+                        width = me.offsetWidth -
+                            (needIEHack ? parseInt(domUtils.getComputedStyle(me, 'margin-left'), 10) * 2 : 0) - defaultValue.tableBorder * 2 - (me.options.offsetWidth || 0);
                     me.execCommand('insertHTML', '<table  ' +
                         ( isFullCol && isFullRow ? 'width="' + width + '"' : '') +
                         '>' + table.innerHTML.replace(/>\s*</g, '><').replace(/\bth\b/gi, "td") + '</table>')
@@ -385,10 +387,10 @@ UE.plugins['table'] = function () {
         });
 
         me.addListener('afterpaste', function () {
-            utils.each(domUtils.getElementsByTagName(me.body, "table"), function (table) {
-                if (table.offsetWidth > me.body.offsetWidth) {
+            utils.each(domUtils.getElementsByTagName(me, "table"), function (table) {
+                if (table.offsetWidth > me.offsetWidth) {
                     var defaultValue = getDefaultValue(me, table);
-                    table.style.width = me.body.offsetWidth - (needIEHack ? parseInt(domUtils.getComputedStyle(me.body, 'margin-left'), 10) * 2 : 0) - defaultValue.tableBorder * 2 - (me.options.offsetWidth || 0) + 'px'
+                    table.style.width = me.offsetWidth - (needIEHack ? parseInt(domUtils.getComputedStyle(me, 'margin-left'), 10) * 2 : 0) - defaultValue.tableBorder * 2 - (me.options.offsetWidth || 0) + 'px'
                 }
             })
         });
@@ -559,7 +561,7 @@ UE.plugins['table'] = function () {
         me.addListener("mousedown", mouseDownEvent);
         me.addListener("mouseup", mouseUpEvent);
         //拖动的时候触发mouseup
-        domUtils.on( me.body, 'dragstart', function( evt ){
+        domUtils.on( me.document, 'dragstart', function( evt ){
             mouseUpEvent.call( me, 'dragstart', evt );
         });
         me.addOutputRule(function(root){
@@ -620,7 +622,7 @@ UE.plugins['table'] = function () {
                 return;
             }
             var notCtrlKey = !evt.ctrlKey && !evt.metaKey && !evt.shiftKey && !evt.altKey;
-            notCtrlKey && removeSelectedClass(domUtils.getElementsByTagName(me.body, "td"));
+            notCtrlKey && removeSelectedClass(domUtils.getElementsByTagName(me, "td"));
             var ut = getUETableBySelected(me);
             if (!ut) return;
             notCtrlKey && ut.clearSelected();
@@ -643,10 +645,10 @@ UE.plugins['table'] = function () {
         //修正全屏状态下插入的表格宽度在非全屏状态下撑开编辑器的情况
         me.addListener("fullscreenchanged", function (type, fullscreen) {
             if (!fullscreen) {
-                var ratio = this.body.offsetWidth / document.body.offsetWidth,
-                    tables = domUtils.getElementsByTagName(this.body, "table");
+                var ratio = this.offsetWidth / document.offsetWidth,
+                    tables = domUtils.getElementsByTagName(this, "table");
                 utils.each(tables, function (table) {
-                    if (table.offsetWidth < me.body.offsetWidth) return false;
+                    if (table.offsetWidth < me.offsetWidth) return false;
                     var tds = domUtils.getElementsByTagName(table, "td"),
                         backWidths = [];
                     utils.each(tds, function (td) {
@@ -670,7 +672,7 @@ UE.plugins['table'] = function () {
             cmd = cmd.toLowerCase();
             var ut = getUETableBySelected(me), tds,
                 range = new dom.Range(me.document),
-                cmdFun = me.commands[cmd] || UE.commands[cmd],
+                cmdFun = me.commands[cmd] || JT.commands[cmd],
                 result;
             if (!cmdFun) return;
             if (ut && !commands[cmd] && !cmdFun.notNeedUndo && !me.__hasEnterExecCommand) {
@@ -756,8 +758,8 @@ UE.plugins['table'] = function () {
             return { x:evt.pageX, y:evt.pageY };
         }
         return {
-            x:evt.clientX + me.document.body.scrollLeft - me.document.body.clientLeft,
-            y:evt.clientY + me.document.body.scrollTop - me.document.body.clientTop
+            x:evt.clientX + me.document.scrollLeft - me.document.clientLeft,
+            y:evt.clientY + me.document.scrollTop - me.document.clientTop
         };
     }
 
@@ -776,7 +778,7 @@ UE.plugins['table'] = function () {
             //区分用户的行为是拖动还是双击
             if( isInResizeBuffer  ) {
 
-                me.body.style.webkitUserSelect = 'none';
+                me.style.webkitUserSelect = 'none';
 
                 if( Math.abs( userActionStatus.x - evt.clientX ) > offsetOfTableCell || Math.abs( userActionStatus.y - evt.clientY ) > offsetOfTableCell ) {
                     clearTableDragTimer();
@@ -790,7 +792,7 @@ UE.plugins['table'] = function () {
             //修改单元格大小时的鼠标移动
             if (onDrag && dragTd) {
                 singleClickState = 0;
-                me.body.style.webkitUserSelect = 'none';
+                me.style.webkitUserSelect = 'none';
                 me.selection.getNative()[browser.ie9below ? 'empty' : 'removeAllRanges']();
                 pos = mouseCoords(evt);
                 toggleDraggableState(me, true, onDrag, pos, target);
@@ -812,12 +814,12 @@ UE.plugins['table'] = function () {
 
                 if (inTableSide(table, target, evt, true)) {
                     if (me.fireEvent("excludetable", table) === true) return;
-                    me.body.style.cursor = "url(" + me.options.cursorpath + "h.png),pointer";
+                    me.style.cursor = "url(" + me.options.cursorpath + "h.png),pointer";
                 } else if (inTableSide(table, target, evt)) {
                     if (me.fireEvent("excludetable", table) === true) return;
-                    me.body.style.cursor = "url(" + me.options.cursorpath + "v.png),pointer";
+                    me.style.cursor = "url(" + me.options.cursorpath + "v.png),pointer";
                 } else {
-                    me.body.style.cursor = "text";
+                    me.style.cursor = "text";
                     var curCell = target;
                     if (/\d/.test(state)) {
                         state = state.replace(/\d/, '');
@@ -893,7 +895,7 @@ UE.plugins['table'] = function () {
             ut.setSelected(range);
         }
 
-        doc.body.appendChild(dragButton);
+        doc.appendChild(dragButton);
     }
 
 
@@ -933,7 +935,7 @@ UE.plugins['table'] = function () {
                 nextTd = ut.getSameStartPosXCells(dragTd)[0],
                 mouseX = mouseCoords(evt).x,
                 left = (preTd ? domUtils.getXY(preTd).x : domUtils.getXY(ut.table).x) + 20 ,
-                right = nextTd ? domUtils.getXY(nextTd).x + nextTd.offsetWidth - 20 : (me.body.offsetWidth + 5 || parseInt(domUtils.getComputedStyle(me.body, "width"), 10));
+                right = nextTd ? domUtils.getXY(nextTd).x + nextTd.offsetWidth - 20 : (me.offsetWidth + 5 || parseInt(domUtils.getComputedStyle(me, "width"), 10));
 
             left += cellMinWidth;
             right -= cellMinWidth;
@@ -960,7 +962,7 @@ UE.plugins['table'] = function () {
      */
     function toggleDraggableState(editor, draggable, dir, mousePos, cell) {
         try {
-            editor.body.style.cursor = dir == "h" ? "col-resize" : dir == "v" ? "row-resize" : "text";
+            editor.style.cursor = dir == "h" ? "col-resize" : dir == "v" ? "row-resize" : "text";
             if (browser.ie) {
                 if (dir && !mousedown && !getUETableBySelected(editor)) {
                     getDragLine(editor, editor.document);
@@ -1006,7 +1008,7 @@ UE.plugins['table'] = function () {
 
             utils.extend( line.style, styles );
 
-            this.document.body.appendChild( line );
+            this.document.appendChild( line );
 
         }
 
@@ -1094,7 +1096,7 @@ UE.plugins['table'] = function () {
                     }
                 });
                 if (!flag) {
-                    removeSelectedClass(domUtils.getElementsByTagName(me.body, "th td"));
+                    removeSelectedClass(domUtils.getElementsByTagName(me, "th td"));
                     ut.clearSelected()
                 } else {
                     td = ut.selectedTds[0];
@@ -1207,7 +1209,7 @@ UE.plugins['table'] = function () {
 
     function tableClickHander( evt ) {
 
-        removeSelectedClass(domUtils.getElementsByTagName(me.body, "td th"));
+        removeSelectedClass(domUtils.getElementsByTagName(me, "td th"));
         //trace:3113
         //选中单元格，点击table外部，不会清掉table上挂的ueTable,会引起getUETableBySelected方法返回值
         utils.each(me.document.getElementsByTagName('table'), function (t) {
@@ -1221,7 +1223,7 @@ UE.plugins['table'] = function () {
 
         //判断当前鼠标状态
         if (!onBorder) {
-            me.document.body.style.webkitUserSelect = '';
+            me.document.style.webkitUserSelect = '';
             mousedown = true;
             me.addListener('mouseover', mouseOverEvent);
         } else {
@@ -1365,7 +1367,7 @@ UE.plugins['table'] = function () {
             }
         }
         mousedown = false;
-        me.document.body.style.webkitUserSelect = '';
+        me.document.style.webkitUserSelect = '';
         //拖拽状态下的mouseUP
         if ( onDrag && dragTd ) {
 
@@ -1447,12 +1449,12 @@ UE.plugins['table'] = function () {
             domUtils.findParentByTagName(startTd, 'table') == domUtils.findParentByTagName(currentTd, 'table')) {
             var ut = getUETable(currentTd);
             if (startTd != currentTd) {
-                me.document.body.style.webkitUserSelect = 'none';
+                me.document.style.webkitUserSelect = 'none';
                 me.selection.getNative()[browser.ie9below ? 'empty' : 'removeAllRanges']();
                 var range = ut.getCellsRange(startTd, currentTd);
                 ut.setSelected(range);
             } else {
-                me.document.body.style.webkitUserSelect = '';
+                me.document.style.webkitUserSelect = '';
                 ut.clearSelected();
             }
 
@@ -1511,7 +1513,7 @@ UE.plugins['table'] = function () {
     }
 
     function isEditorDisabled() {
-        return me.body.contentEditable === "false";
+        return me.contentEditable === "false";
     }
 
     function changeRowHeight(td, changeValue) {
@@ -1728,7 +1730,7 @@ UE.plugins['table'] = function () {
 
             tab.style.cssText = "visibility: hidden;";
 
-            me.body.appendChild( tab );
+            me.appendChild( tab );
 
             UT.paddingSpace = tabcell.offsetWidth - 1;
 
@@ -1741,7 +1743,7 @@ UE.plugins['table'] = function () {
 
             UT.tabcellSpace = UT.paddingSpace + UT.borderWidth;
 
-            me.body.removeChild( tab );
+            me.removeChild( tab );
 
         }
 
@@ -1763,7 +1765,7 @@ UE.plugins['table'] = function () {
             'onselectstart':'return false',
             style:"background-color:blue;position:absolute;padding:0;margin:0;background-image:none;border:0px none;opacity:0;filter:alpha(opacity=0)"
         });
-        editor.body.appendChild(dragLine);
+        editor.appendChild(dragLine);
     }
 
     function hideDragLine(editor) {
@@ -1807,7 +1809,7 @@ UE.plugins['table'] = function () {
      * @param flag
      */
     function switchBorderColor(editor, flag) {
-        var tableArr = domUtils.getElementsByTagName(editor.body, "table"), color;
+        var tableArr = domUtils.getElementsByTagName(editor, "table"), color;
         for (var i = 0, node; node = tableArr[i++];) {
             var td = domUtils.getElementsByTagName(node, "td");
             if (td[0]) {
@@ -1824,7 +1826,7 @@ UE.plugins['table'] = function () {
     }
 
     function getTableWidth(editor, needIEHack, defaultValue) {
-        var body = editor.body;
+        var body = editor;
         return body.offsetWidth - (needIEHack ? parseInt(domUtils.getComputedStyle(body, 'margin-left'), 10) * 2 : 0) - defaultValue.tableBorder * 2 - (editor.options.offsetWidth || 0);
     }
 

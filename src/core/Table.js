@@ -176,10 +176,14 @@
      */
     var Table = JT.Table = function (options) {
         var me = this;
-        me.uid = uid++;
+        me.uid = uid++; //表格唯一识别编号
         me.EventBase=EventBase.prototype;
         me.commands = {};
         me.options = utils.extend(utils.clone(options || {}), JTABLE_CONFIG, true);
+        me.outputRules = [];
+        JT.plugin.register('table',JT.plugins.table);
+
+        JT.plugin.load(me);
         JT.instants['tableInstant' + me.uid] = me;
     };
     Table.prototype = {
@@ -233,18 +237,18 @@
          * } );
          * ```
          */
-        // setOpt: function (key, val) {
-        //     var obj = {};
-        //     if (utils.isString(key)) {
-        //         obj[key] = val
-        //     } else {
-        //         obj = key;
-        //     }
-        //     utils.extend(this.options, obj, true);
-        // },
-        // getOpt:function(key){
-        //     return this.options[key]
-        // },
+        setOpt: function (key, val) {
+            var obj = {};
+            if (utils.isString(key)) {
+                obj[key] = val
+            } else {
+                obj = key;
+            }
+            utils.extend(this.options, obj, true);
+        },
+        getOpt:function(key){
+            return this.options[key]
+        },
         /**
          * 销毁编辑器实例，使用textarea代替
          * @method destroy
@@ -291,8 +295,9 @@
                 options = me.options,
                 doc=document.getElementById(container);
                 doc.setAttribute("table-id",'tableInstant' + me.uid);
-            me.selection = new dom.Selection(doc);
-            me.container=me.document=doc;
+            me.selection = new dom.Selection(document);
+            me.container=doc;
+            me.document=document;
             if (ie) {
                 doc.disabled = true;
                 doc.contentEditable = false;
@@ -532,8 +537,8 @@
                 doc = me.document,
                 win = me.window;
             me._proxyDomEvent = utils.bind(me._proxyDomEvent, me);
-            //domUtils.on(doc, ['click', 'contextmenu', 'mousedown', 'keydown', 'keyup', 'keypress', 'mouseup', 'mouseover', 'mouseout', 'selectstart'], me._proxyDomEvent);
-            domUtils.on(doc, ['click', 'contextmenu', 'mousedown', 'keydown', 'keyup', 'keypress', 'mouseup', 'mouseover', 'mouseout'], me._proxyDomEvent);
+            domUtils.on(doc, ['click', 'contextmenu', 'mousedown', 'keydown', 'keyup', 'keypress', 'mouseup', 'mouseover', 'mouseout', 'selectstart'], me._proxyDomEvent);
+            //domUtils.on(doc, ['click', 'contextmenu', 'mousedown', 'keydown', 'keyup', 'keypress', 'mouseup', 'mouseover', 'mouseout'], me._proxyDomEvent);
             domUtils.on(win, ['focus', 'blur'], me._proxyDomEvent);
             domUtils.on(me.body,'drop',function(e){
                 //阻止ff下默认的弹出新页面打开图片

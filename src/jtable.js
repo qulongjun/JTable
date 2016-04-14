@@ -7,6 +7,8 @@ var JTABLE_CONFIG=Window.JTABLE_CONFIG || {};
 
 Window.JT=JT;
 
+JT.plugins = {};
+
 JT.commands = {};
 
 JT.ui = {};

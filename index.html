@@ -3,30 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
-    <style>
-        table{
-            border:1px solid #DDD;
-            border-collapse: collapse;
-        }
-        th,td{
-            border:1px solid #DDD;
-        }
+    <!--<style>-->
+        <!--table {-->
+            <!--border: 1px solid #DDD;-->
+            <!--border-collapse: collapse;-->
+        <!--}-->
 
-    </style>
+        <!--th, td {-->
+            <!--border: 1px solid #DDD;-->
+        <!--}-->
+
+        <!--.selectTdClass {-->
+            <!--background-color: #edf5fa !important-->
+        <!--}-->
+
+        <!--table.noBorderTable td, table.noBorderTable th, table.noBorderTable caption {-->
+            <!--border: 1px dashed #ddd !important-->
+        <!--}-->
+
+        <!--table {-->
+            <!--margin-bottom: 10px;-->
+            <!--border-collapse: collapse;-->
+            <!--display: table;-->
+        <!--}-->
+
+        <!--td, th {-->
+            <!--padding: 5px 10px;-->
+            <!--border: 1px solid #DDD;-->
+        <!--}-->
+
+        <!--caption {-->
+            <!--border: 1px dashed #DDD;-->
+            <!--border-bottom: 0;-->
+            <!--padding: 3px;-->
+            <!--text-align: center;-->
+        <!--}-->
+
+        <!--th {-->
+            <!--border-top: 1px solid #BBB;-->
+            <!--background-color: #F7F7F7;-->
+        <!--}-->
+
+        <!--table tr.firstRow th {-->
+            <!--border-top-width: 2px;-->
+        <!--}-->
+
+        <!--.ue-table-interlace-color-single {-->
+            <!--background-color: #fcfcfc;-->
+        <!--}-->
+
+        <!--.ue-table-interlace-color-double {-->
+            <!--background-color: #f7faff;-->
+        <!--}-->
+
+        <!--td p {-->
+            <!--margin: 0;-->
+            <!--padding: 0;-->
+        <!--}-->
+    <!--</style>-->
 </head>
 <body>
-    <div id="table"></div>
-    <div id="table2"></div>
-    <div id="table3"></div>
-    <div id="table4"></div>
+<div id="table"></div>
+<div id="table2"></div>
+<div id="table3"></div>
+<div id="table4"></div>
 <script src="required/jquery-1.12.3.min.js" type="text/javascript"></script>
-<script src="jtable_api.js" type="text/javascript"></script><script type="text/javascript" src="JTable.config.js"></script>
+<script src="jtable_api.js" type="text/javascript"></script>
+<script type="text/javascript" src="JTable.config.js"></script>
 <script>
-    var a=new JT.Table({
-        'destoryContainer':true
+    var a = new JT.Table({
+        'destoryContainer': true
     });
     //a.render("table");
-    window.a=a;
+    window.a = a;
 </script>
 </body>
 </html>
