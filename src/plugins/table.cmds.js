@@ -108,6 +108,7 @@
 
         }
     };
+    //实现了选择之后做
     JT.commands['cellalign'] = {
         queryCommandState: function () {
             return getSelectedArr(this).length ? 0 : -1
@@ -121,6 +122,7 @@
             }
         }
     };
+    //实现了选择之后做
     JT.commands['cellvalign'] = {
         queryCommandState: function () {
             return getSelectedArr(this).length ? 0 : -1;
@@ -250,7 +252,7 @@
             this.selection.getRange().setStart(td, 0).setCursor(false, true);
         }
     };
-
+    //以后做
     JT.commands["mergeright"] = {
         queryCommandState: function (cmd) {
             var tableItems = getTableItemsByRange(this),
@@ -281,6 +283,7 @@
             rng.moveToBookmark(bk).select();
         }
     };
+    //以后做
     JT.commands["mergedown"] = {
         queryCommandState: function (cmd) {
             var tableItems = getTableItemsByRange(this),
@@ -311,6 +314,7 @@
             rng.moveToBookmark(bk).select();
         }
     };
+    //以后做
     JT.commands["mergecells"] = {
         queryCommandState: function () {
             return getUETableBySelected(this) ? 0 : -1;
@@ -332,6 +336,7 @@
 
         }
     };
+    //实现了选择之后做
     JT.commands["insertrow"] = {
         queryCommandState: function () {
             var tableItems = getTableItemsByRange(this),
@@ -360,7 +365,7 @@
             if (table.getAttribute("interlaced") === "enabled")this.fireEvent("interlacetable", table);
         }
     };
-    //后插入行
+    //实现了选择之后做,后插入行
     JT.commands["insertrownext"] = {
         queryCommandState: function () {
             var tableItems = getTableItemsByRange(this),
@@ -388,6 +393,7 @@
             if (table.getAttribute("interlaced") === "enabled")this.fireEvent("interlacetable", table);
         }
     };
+    //实现了选择之后做
     JT.commands["deleterow"] = {
         queryCommandState: function () {
             var tableItems = getTableItemsByRange(this);
@@ -426,6 +432,7 @@
             if (table.getAttribute("interlaced") === "enabled")this.fireEvent("interlacetable", table);
         }
     };
+    //实现了选择之后做
     JT.commands["insertcol"] = {
         queryCommandState: function (cmd) {
             var tableItems = getTableItemsByRange(this),
@@ -453,6 +460,7 @@
             rng.moveToBookmark(bk).select(true);
         }
     };
+    //实现了选择之后做
     JT.commands["insertcolnext"] = {
         queryCommandState: function () {
             var tableItems = getTableItemsByRange(this),
@@ -477,7 +485,7 @@
             rng.moveToBookmark(bk).select();
         }
     };
-
+    //实现了选择之后做
     JT.commands["deletecol"] = {
         queryCommandState: function () {
             var tableItems = getTableItemsByRange(this);
@@ -919,6 +927,7 @@
     function getTableWidth(editor, needIEHack, defaultValue) {
         var body = editor.body;
         return body.offsetWidth - (needIEHack ? parseInt(domUtils.getComputedStyle(body, 'margin-left'), 10) * 2 : 0) - defaultValue.tableBorder * 2 - (editor.options.offsetWidth || 0);
+
     }
 
     function getSelectedArr(editor) {

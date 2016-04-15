@@ -425,6 +425,20 @@ JT.commands["insertcaption"] = {
     }
 };
 
+JT.commands["deletecaption"] = {
+    queryCommandState: function () {
+
+    },
+    execCommand: function (cmd, opt) {
+        var me = this;
+        var doc = me.document || document;
+        var table = doc.getElementById('tableInstant' + me.uid);
+        if (table && table.nodeType == 1) {
+            JUtils.remove(table.getElementsByTagName('caption')[0]);
+        }
+    }
+};
+
 JT.commands["inserttitlerow"] = {
     queryCommandState: function () {
 
@@ -434,41 +448,49 @@ JT.commands["inserttitlerow"] = {
         var doc = me.document || document;
         var table = doc.getElementById('tableInstant' + me.uid);
         if (table && table.nodeType == 1) {
-            // var oTr = doc.getElementsByClassName('firstRow')[0],
-            //     oParent = oTr ? oTr.parentNode : null,
-            //     oCaption = table.getElementsByTagName('caption')[0]
-            // if (oParent && oParent.nodeType == 1) {
-            //     if (oParent.tagName == 'THEAD') {
-            //         //已经是表头了,取消标题行
-            //
-            //     } else {
-            //         //还是普通的行,变成标题行
-            //         var aTd=oTr.getElementsByTagName('TD');
-            //         var thead = doc.createElement('THEAD');
-            //         JUtils.each(aTd,function (td) {
-            //            var oTr=doc.createElement('TR');
-            //
-            //             //JUtils.setAttributes(oTr,td.attributes);
-            //             console.log(oTr);
-            //         });
-            //         //console.log(aTd);
-            //         if (oCaption) {
-            //             //存在Caption
-            //
-            //         } else {
-            //             //不存在Caption
-            //
-            //         }
-            //     }
-            // }
-            //alert(oTr);
-            //JAction.insertRow(0, 'th');
-            //.insertRow(0, 'th');
-            // JAction.insertRow.call(JAction.getJTable(table),0,'th');
-
             getJTable(table).insertRow(0, 'th');
-            //JAction.insertRow.call(table,0,'th');
-            //table.parentNode&&table.parentNode.removeChild(table);
+        }
+    }
+};
+JT.commands["inserttitlecol"] = {
+    queryCommandState: function () {
+
+    },
+    execCommand: function (cmd, opt) {
+        var me = this;
+        var doc = me.document || document;
+        var table = doc.getElementById('tableInstant' + me.uid);
+        if (table && table.nodeType == 1) {
+            getJTable(table).insertCol(0, 'th');
+        }
+        //resetTdWidth(table, this);
+    }
+};
+JT.commands["deletetitlerow"] = {
+    queryCommandState: function () {
+
+    },
+    execCommand: function (cmd, opt) {
+        var me = this;
+        var doc = me.document || document;
+        var table = doc.getElementById('tableInstant' + me.uid);
+        if (table && table.nodeType == 1) {
+            JUtils.remove(table.rows[0]);
+        }
+    }
+};
+JT.commands["deletetitlecol"] = {
+    queryCommandState: function () {
+
+    },
+    execCommand: function (cmd, opt) {
+        var me = this;
+        var doc = me.document || document;
+        var table = doc.getElementById('tableInstant' + me.uid);
+        if (table && table.nodeType == 1) {
+            for(var i = 0; i< table.rows.length; i++ ){
+                JUtils.remove(table.rows[i].children[0])
+            }
         }
     }
 };
@@ -493,6 +515,29 @@ getJTable = function (tdOrTable) {
     }
     return tdOrTable.ueTable;
 };
+function resetTdWidth(table, editor) {
+    var tds = JUtils.getElementsByTagName(table, 'td th');
+    JUtils.each(tds, function (td) {
+        td.removeAttribute("width");
+    });
+    table.setAttribute('width', getTableWidth(editor, true, JCommand.getDefaultValue(editor, table)));
+    var tdsWidths = [];
+    setTimeout(function () {
+        JUtils.each(tds, function (td) {
+            (td.colSpan == 1) && tdsWidths.push(td.offsetWidth)
+        });
+        JUtils.each(tds, function (td, i) {
+            (td.colSpan == 1) && td.setAttribute("width", tdsWidths[i] + "");
+        })
+    }, 0);
+}
+function getTableWidth(editor, needIEHack, defaultValue) {
+    var body = editor.container;
+    var b = (needIEHack ? parseInt(JUtils.getComputedStyle(body, 'margin-left'), 10) * 2 : 0) - defaultValue.tableBorder * 2 - (editor.options.offsetWidth || 0);
+
+    return body.offsetWidth - (needIEHack ? parseInt(JUtils.getComputedStyle(body, 'margin-left'), 10) * 2 : 0) - defaultValue.tableBorder * 2 - (editor.options.offsetWidth || 0);
+    //return editor.options.tableWidth;
+}
 var JAction = JTable.JAction = {};
 JAction.prototype = {
     /**
@@ -688,6 +733,87 @@ JAction.prototype = {
         this.update();
         return row;
     },
+    insertCol: function (colIndex, sourceCell, defaultValue) {
+        var rowsNum = this.rowsNum,
+            rowIndex = 0,
+            tableRow, cell,
+            backWidth = parseInt((this.table.offsetWidth - (this.colsNum + 1) * 20 - (this.colsNum + 1)) / (this.colsNum + 1), 10),
+            isInsertTitleCol = typeof sourceCell == 'string' && sourceCell.toUpperCase() == 'TH';
+
+        function replaceTdToTh(rowIndex, cell, tableRow) {
+            if (rowIndex == 0) {
+                var th = cell.nextSibling || cell.previousSibling;
+                if (th.tagName == 'TH') {
+                    th = cell.ownerDocument.createElement("th");
+                    th.appendChild(cell.firstChild);
+                    tableRow.insertBefore(th, cell);
+                    JUtils.remove(cell)
+                }
+            } else {
+                if (cell.tagName == 'TH') {
+                    var td = cell.ownerDocument.createElement("td");
+                    td.appendChild(cell.firstChild);
+                    tableRow.insertBefore(td, cell);
+                    JUtils.remove(cell)
+                }
+            }
+        }
+
+        var preCell;
+        if (colIndex == 0 || colIndex == this.colsNum) {
+            for (; rowIndex < rowsNum; rowIndex++) {
+                tableRow = this.table.rows[rowIndex];
+                preCell = tableRow.cells[colIndex == 0 ? colIndex : tableRow.cells.length];
+                cell = this.cloneCell(sourceCell, true); //tableRow.insertCell(colIndex == 0 ? colIndex : tableRow.cells.length);
+                this.setCellContent(cell);
+                //cell.setAttribute('vAlign', cell.getAttribute('vAlign'));
+                preCell && cell.setAttribute('width', preCell.getAttribute('width'));
+                preCell && cell.setAttribute('vAlign', preCell.getAttribute('vAlign'));
+
+                if (!colIndex) {
+                    tableRow.insertBefore(cell, tableRow.cells[0]);
+                } else {
+                    JUtils.insertAfter(tableRow.cells[tableRow.cells.length - 1], cell);
+                }
+                if (!isInsertTitleCol) replaceTdToTh(rowIndex, cell, tableRow)
+            }
+        } else {
+            for (; rowIndex < rowsNum; rowIndex++) {
+                var cellInfo = this.indexTable[rowIndex][colIndex];
+                if (cellInfo.colIndex < colIndex) {
+                    cell = this.getCell(cellInfo.rowIndex, cellInfo.cellIndex);
+                    cell.colSpan = cellInfo.colSpan + 1;
+                } else {
+                    tableRow = this.table.rows[rowIndex];
+                    preCell = tableRow.cells[cellInfo.cellIndex];
+
+                    cell = this.cloneCell(sourceCell, true);//tableRow.insertCell(cellInfo.cellIndex);
+                    this.setCellContent(cell);
+                    //cell.setAttribute('vAlign', cell.getAttribute('vAlign'));
+                    preCell && cell.setAttribute('width', preCell.getAttribute('width'));
+                    preCell && cell.setAttribute('vAlign', preCell.getAttribute('vAlign'));
+                    //防止IE下报错
+                    preCell ? tableRow.insertBefore(cell, preCell) : tableRow.appendChild(cell);
+                }
+                if (!isInsertTitleCol) replaceTdToTh(rowIndex, cell, tableRow);
+            }
+        }
+        //框选时插入不触发contentchange，需要手动更新索引
+        this.update();
+        this.updateWidth(backWidth, defaultValue || {tdPadding: 10, tdBorder: 1});
+    },
+    updateWidth: function (width, defaultValue) {
+        var table = this.table,
+            tmpWidth = this.getWidth(table) - defaultValue.tdPadding * 2 - defaultValue.tdBorder + width;
+        if (tmpWidth < table.ownerDocument.body.offsetWidth) {
+            table.setAttribute("width", tmpWidth);
+            return;
+        }
+        var tds = JUtils.getElementsByTagName(this.table, "td th");
+        JUtils.each(tds, function (td) {
+            td.setAttribute("width", width);
+        })
+    },
     cloneCell: function (cell, ignoreMerge, keepPro) {
         if (!cell || JUtils.isString(cell)) {
             return this.table.ownerDocument.createElement(cell || 'td');
@@ -711,10 +837,13 @@ JAction.prototype = {
         flag && JUtils.addClass(cell, "selectTdClass");
         return tmpCell;
     },
-    setCellContent:function (cell, content) {
-        cell.innerHTML = content || (browser.ie ? domUtils.fillChar : "<br />");
+    setCellContent: function (cell, content) {
+        cell.innerHTML = content || (browser.ie ? JUtils.fillChar : "<br />");
     },
-
+    getWidth: function (cell) {
+        if (!cell)return 0;
+        return parseInt(JUtils.getComputedStyle(cell, "width"), 10);
+    }
 };
 
 
@@ -732,7 +861,7 @@ var JUtils = JT.JUtils = {
      *
      * <script>
      *
-     *     UE.dom.domUtils.removeAttributes( document.getElementById( "test" ), "id name" );
+     *     UE.dom.JUtils.removeAttributes( document.getElementById( "test" ), "id name" );
      *
      *     //output: <span style="font-size:14px;">xxxxx</span>
      *     console.log( document.getElementById("wrap").innerHTML );
@@ -754,7 +883,7 @@ var JUtils = JT.JUtils = {
      *
      * <script>
      *
-     *     UE.dom.domUtils.removeAttributes( document.getElementById( "test" ), ["id", "name"] );
+     *     UE.dom.JUtils.removeAttributes( document.getElementById( "test" ), ["id", "name"] );
      *
      *     //output: <span style="font-size:14px;">xxxxx</span>
      *     console.log( document.getElementById("wrap").innerHTML );
@@ -762,8 +891,8 @@ var JUtils = JT.JUtils = {
      * </script>
      * ```
      */
-    removeAttributes:function (node, attrNames) {
-        attrNames = JUtils.isArray(attrNames) ? attrNames : JUtils.trim(attrNames).replace(/[ ]{2,}/g,' ').split(' ');
+    removeAttributes: function (node, attrNames) {
+        attrNames = JUtils.isArray(attrNames) ? attrNames : JUtils.trim(attrNames).replace(/[ ]{2,}/g, ' ').split(' ');
         for (var i = 0, ci; ci = attrNames[i++];) {
             ci = attrFix[ci] || ci;
             switch (ci) {
@@ -790,7 +919,7 @@ var JUtils = JT.JUtils = {
      * <script>
      *
      *     var testNode = document.getElementById( "test" );
-     *     UE.dom.domUtils.removeClasses( testNode, "test1 test2" );
+     *     UE.dom.JUtils.removeClasses( testNode, "test1 test2" );
      *
      *     //output: test3
      *     console.log( testNode.className );
@@ -811,7 +940,7 @@ var JUtils = JT.JUtils = {
      * <script>
      *
      *     var testNode = document.getElementById( "test" );
-     *     UE.dom.domUtils.removeClasses( testNode, ["test1", "test2"] );
+     *     UE.dom.JUtils.removeClasses( testNode, ["test1", "test2"] );
      *
      *     //output: test3
      *     console.log( testNode.className );
@@ -819,17 +948,17 @@ var JUtils = JT.JUtils = {
      * </script>
      * ```
      */
-    removeClasses:function (elm, classNames) {
+    removeClasses: function (elm, classNames) {
         classNames = JUtils.isArray(classNames) ? classNames :
-            JUtils.trim(classNames).replace(/[ ]{2,}/g,' ').split(' ');
-        for(var i = 0,ci,cls = elm.className;ci=classNames[i++];){
-            cls = cls.replace(new RegExp('\\b' + ci + '\\b'),'')
+            JUtils.trim(classNames).replace(/[ ]{2,}/g, ' ').split(' ');
+        for (var i = 0, ci, cls = elm.className; ci = classNames[i++];) {
+            cls = cls.replace(new RegExp('\\b' + ci + '\\b'), '')
         }
-        cls = JUtils.trim(cls).replace(/[ ]{2,}/g,' ');
-        if(cls){
+        cls = JUtils.trim(cls).replace(/[ ]{2,}/g, ' ');
+        if (cls) {
             elm.className = cls;
-        }else{
-            JUtils.removeAttributes(elm,['class']);
+        } else {
+            JUtils.removeAttributes(elm, ['class']);
         }
     },
     /**
@@ -845,7 +974,7 @@ var JUtils = JT.JUtils = {
      * <script>
      *     var testNode = document.getElementById("test");
      *
-     *     UE.dom.domUtils.addClass( testNode, ["cls2", "cls3", "cls4"] );
+     *     UE.dom.JUtils.addClass( testNode, ["cls2", "cls3", "cls4"] );
      *
      *     //output: cl1 cls2 cls3 cls4
      *     console.log( testNode.className );
@@ -853,11 +982,11 @@ var JUtils = JT.JUtils = {
      * <script>
      * ```
      */
-    addClass:function (elm, classNames) {
-        if(!elm)return;
-        classNames = JUtils.trim(classNames).replace(/[ ]{2,}/g,' ').split(' ');
-        for(var i = 0,ci,cls = elm.className;ci=classNames[i++];){
-            if(!new RegExp('\\b' + ci + '\\b').test(cls)){
+    addClass: function (elm, classNames) {
+        if (!elm)return;
+        classNames = JUtils.trim(classNames).replace(/[ ]{2,}/g, ' ').split(' ');
+        for (var i = 0, ci, cls = elm.className; ci = classNames[i++];) {
+            if (!new RegExp('\\b' + ci + '\\b').test(cls)) {
                 cls += ' ' + ci;
             }
         }

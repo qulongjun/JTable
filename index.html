@@ -8,9 +8,12 @@
 <div style="margin-bottom: 50px;">
     <button id="createTable">创建表格</button>
     <button id="deleteTable">删除表格</button>
-    <button id="insertCaption">插入表格名称</button>
+    <button id="insertCaption">插入表头</button>
+    <button id="deleteCaption">删除表头</button>
     <button id="insertTitleRow">插入标题行</button>
+    <button id="deleteTitleRow">删除标题行</button>
     <button id="insertTitleCol">插入标题列</button>
+    <button id="deletetitleCol">删除标题列</button>
 </div>
 <div id="table">
 </div>
@@ -18,8 +21,6 @@
 <div id="table3"></div>
 <div id="table4"></div>
 <script src="required/jquery-1.12.3.min.js" type="text/javascript"></script>
-<!--<script src="jtable_api.js" type="text/javascript"></script>-->
-<!--<script type="text/javascript" src="JTable.config.js"></script>-->
 <script type="text/javascript" src="jtable.all.js"></script>
 <script>
     var a = new JTable({
@@ -41,6 +42,15 @@
     });
     $('#insertTitleCol').on('click',function () {
         a.execCommand("inserttitlecol");
+    });
+    $('#deleteTitleRow').on('click',function () {
+        a.execCommand("deletetitlerow");
+    });
+    $('#deletetitleCol').on('click',function () {
+        a.execCommand("deletetitlecol");
+    });
+    $('#deleteCaption').on('click',function () {
+        a.execCommand("deletecaption");
     });
 </script>
 </body>
