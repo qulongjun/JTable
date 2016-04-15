@@ -68,14 +68,19 @@
 <div id="table3"></div>
 <div id="table4"></div>
 <script src="required/jquery-1.12.3.min.js" type="text/javascript"></script>
-<script src="jtable_api.js" type="text/javascript"></script>
-<script type="text/javascript" src="JTable.config.js"></script>
+<!--<script src="jtable_api.js" type="text/javascript"></script>-->
+<!--<script type="text/javascript" src="JTable.config.js"></script>-->
+<script type="text/javascript" src="jtable.all.js"></script>
 <script>
-    var a = new JT.Table({
-        'destoryContainer': true
+    var a = new JTable({
+        'destoryContainer': true,
+        'container':'table',
+        'tableWidth':300
     });
-    //a.render("table");
-    window.a = a;
+    a.execCommand("inserttable");
+
+//    //a.render("table");
+//    window.a = a;
 </script>
 </body>
 </html>

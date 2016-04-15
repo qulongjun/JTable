@@ -231,7 +231,6 @@ var browser = JT.browser = function(){
      * ```
      */
     browser.version = version;
-
     /**
      * @property { boolean } isCompatible 检测当前浏览器是否能够与JTditor良好兼容
      * @example

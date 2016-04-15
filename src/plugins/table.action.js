@@ -430,24 +430,6 @@ JT.plugins['table'] = function () {
             utils.each(domUtils.getElementsByTagName(me.document, 'table'), function (table) {
                 if (me.fireEvent("excludetable", table) === true) return;
                 table.ueTable = new UT(table);
-                //trace:3742
-//                utils.each(domUtils.getElementsByTagName(me.document, 'td'), function (td) {
-//
-//                    if (domUtils.isEmptyBlock(td) && td !== start) {
-//                        domUtils.fillNode(me.document, td);
-//                        if (browser.ie && browser.version == 6) {
-//                            td.innerHTML = '&nbsp;'
-//                        }
-//                    }
-//                });
-//                utils.each(domUtils.getElementsByTagName(me.document, 'th'), function (th) {
-//                    if (domUtils.isEmptyBlock(th) && th !== start) {
-//                        domUtils.fillNode(me.document, th);
-//                        if (browser.ie && browser.version == 6) {
-//                            th.innerHTML = '&nbsp;'
-//                        }
-//                    }
-//                });
                 table.onmouseover = function () {
                     me.fireEvent('tablemouseover', table);
                 };
@@ -472,15 +454,6 @@ JT.plugins['table'] = function () {
                         cellInfo = ut.getCellInfo(target),
                         cellsRange,
                         rng = me.selection.getRange();
-//                    if ("topLeft" == inPosition(table, mouseCoords(evt))) {
-//                        cellsRange = ut.getCellsRange(ut.table.rows[0].cells[0], ut.getLastCell());
-//                        ut.setSelected(cellsRange);
-//                        return;
-//                    }
-//                    if ("bottomRight" == inPosition(table, mouseCoords(evt))) {
-//
-//                        return;
-//                    }
                     if (inTableSide(table, target, evt, true)) {
                         var endTdCol = ut.getCell(ut.indexTable[ut.rowsNum - 1][cellInfo.colIndex].rowIndex, ut.indexTable[ut.rowsNum - 1][cellInfo.colIndex].cellIndex);
                         if (evt.shiftKey && ut.selectedTds.length) {
