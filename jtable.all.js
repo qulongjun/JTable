@@ -352,9 +352,6 @@ var JCommand = JT.JCommand = {
             };
         }
     }
-
-
-    //...
 };
 JT.commands["inserttable"] = {
     queryCommandState: function () {
@@ -408,7 +405,6 @@ JT.commands["deletetable"] = {
         }
     }
 };
-
 JT.commands["insertcaption"] = {
     queryCommandState: function () {
 
@@ -424,7 +420,6 @@ JT.commands["insertcaption"] = {
         }
     }
 };
-
 JT.commands["deletecaption"] = {
     queryCommandState: function () {
 
@@ -438,7 +433,6 @@ JT.commands["deletecaption"] = {
         }
     }
 };
-
 JT.commands["inserttitlerow"] = {
     queryCommandState: function () {
 
@@ -537,6 +531,92 @@ function getTableWidth(editor, needIEHack, defaultValue) {
 
     return body.offsetWidth - (needIEHack ? parseInt(JUtils.getComputedStyle(body, 'margin-left'), 10) * 2 : 0) - defaultValue.tableBorder * 2 - (editor.options.offsetWidth || 0);
     //return editor.options.tableWidth;
+}
+//处理拖动及框选相关方法
+var startTd = null, //鼠标按下时的锚点td
+    currentTd = null, //当前鼠标经过时的td
+    onDrag = "", //指示当前拖动状态，其值可为"","h","v" ,分别表示未拖动状态，横向拖动状态，纵向拖动状态，用于鼠标移动过程中的判断
+    onBorder = false, //检测鼠标按下时是否处在单元格边缘位置
+    dragButton = null,
+    dragOver = false,
+    dragLine = null, //模拟的拖动线
+    dragTd = null;    //发生拖动的目标td
+function mouseMoveEvent(evt) {
+    // if (isEditorDisabled()) {
+    //     return;
+    // }
+    try {
+        //普通状态下鼠标移动
+        var target = getParentTdOrTh(evt.target || evt.srcElement),
+            pos;
+
+        //区分用户的行为是拖动还是双击
+        // if (isInResizeBuffer) {
+        //
+        //     me.body.style.webkitUserSelect = 'none';
+        //
+        //     if (Math.abs(userActionStatus.x - evt.clientX) > offsetOfTableCell || Math.abs(userActionStatus.y - evt.clientY) > offsetOfTableCell) {
+        //         clearTableDragTimer();
+        //         isInResizeBuffer = false;
+        //         singleClickState = 0;
+        //         //drag action
+        //         tableBorderDrag(evt);
+        //     }
+        // }
+
+        //修改单元格大小时的鼠标移动
+        if (onDrag && dragTd) {
+            singleClickState = 0;
+            me.body.style.webkitUserSelect = 'none';
+            me.selection.getNative()[browser.ie9below ? 'empty' : 'removeAllRanges']();
+            pos = mouseCoords(evt);
+            toggleDraggableState(me, true, onDrag, pos, target);
+            if (onDrag == "h") {
+                dragLine.style.left = getPermissionX(dragTd, evt) + "px";
+            } else if (onDrag == "v") {
+                dragLine.style.top = getPermissionY(dragTd, evt) + "px";
+            }
+            return;
+        }
+        //当鼠标处于table上时，修改移动过程中的光标状态
+        if (target) {
+            //针对使用table作为容器的组件不触发拖拽效果
+            if (me.fireEvent('excludetable', target) === true)
+                return;
+            pos = mouseCoords(evt);
+            var state = getRelation(target, pos),
+                table = domUtils.findParentByTagName(target, "table", true);
+
+            if (inTableSide(table, target, evt, true)) {
+                if (me.fireEvent("excludetable", table) === true) return;
+                me.body.style.cursor = "url(" + me.options.cursorpath + "h.png),pointer";
+            } else if (inTableSide(table, target, evt)) {
+                if (me.fireEvent("excludetable", table) === true) return;
+                me.body.style.cursor = "url(" + me.options.cursorpath + "v.png),pointer";
+            } else {
+                me.body.style.cursor = "text";
+                var curCell = target;
+                if (/\d/.test(state)) {
+                    state = state.replace(/\d/, '');
+                    target = getUETable(target).getPreviewCell(target, state == "v");
+                }
+                //位于第一行的顶部或者第一列的左边时不可拖动
+                toggleDraggableState(me, target ? !!state : false, target ? state : '', pos, target);
+
+            }
+        } else {
+            toggleDragButton(false, table, me);
+        }
+
+    } catch (e) {
+        throw e;
+    }
+};
+function getParentTdOrTh(ele) {
+    if (ele.tagName == "TD" || ele.tagName == "TH") return ele;
+    var td;
+    if (td = JUtils.findParentByTagName(ele, "td", true) || JUtils.findParentByTagName(ele, "th", true)) return td;
+    return null;
 }
 var JAction = JTable.JAction = {};
 JAction.prototype = {

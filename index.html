@@ -52,6 +52,29 @@
     $('#deleteCaption').on('click',function () {
         a.execCommand("deletecaption");
     });
+    
+    $(a.container).on('mousedown',function () {
+        console.log('mousedown');
+        $(a.container).on('mousemove',function (evt) {
+            //$(a.container).find('td').removeClass('selectTdClass');
+            //console.log(evt.target);
+            //var target=evt.target;
+            //$(target).addClass('selectTdClass');
+            mouseMoveEvent(evt);
+        });
+        $(a.container).on('mouseup',function () {
+            console.log('mouseup');
+            $(a.container).off('mousemove')
+            $(a.container).off('mouseup')
+
+        });
+//        $(a.container).on('click',function () {
+//            console.log('click');
+//            $(a.container).find('td').removeClass('selectTdClass');
+//        });
+    });
+
+
 </script>
 </body>
 </html>
