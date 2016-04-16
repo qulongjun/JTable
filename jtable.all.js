@@ -166,40 +166,46 @@ function getListener(obj, type, force) {
     return ( ( allListeners = ( obj.__allListeners || force && ( obj.__allListeners = {} ) ) )
     && ( allListeners[type] || force && ( allListeners[type] = [] ) ) );
 }
-
+var startCell, endCell;
 var JEvent = JT.JEvent = {
     init: function () {
         var me = this;
-        //click();
-        //JEvent.click.call(me);
-        var startCell,endCell;
-        me.addListener('mousedown',function (cmd,evt) {
-            startCell=evt.target;
+        me.addListener('readyLoad', JEvent.readyLoad);
+        me.addListener('mousedown', function (cmd, evt) {
+            me.clearSelected();//清除已经选中的
+            startCell = evt && me.getParentTdOrTh(evt.target || evt.srcElement);
+            me.addListener('mousemove', MouseMoveSelect);
         });
-        me.addListener('mouseup',function (cmd,evt) {
-            endCell=evt.target;
-            console.log(startCell.cellIndex);
-            console.log(endCell.cellIndex);
-            var table = me.document.getElementById('tableInstant' + me.uid);
-            me.update(table);
-            var rng = me.getCellsRange(startCell,endCell);
-            console.log(rng);
-            me.setSelected(rng);
-        });
-        me.addListener('mousemove',function (cmd,evt) {
-           //console.log(me.getRelation(evt.target,me.mouseCoords(evt)));
-            //me.addSelectedClass();
-            //console.log(evt.target.cellIndex);
-            //console.log(this.getCell(evt.target.parentNode.rowIndex,evt.target.cellIndex));
-            
-        });
-
-
+        me.addListener('mouseup', MouseMoveSelect);
     },
-    click: function () {
-        // var me=this;
+    readyLoad: function () {
+        var me = this;
+        $(me.container).on('mousedown', function (evt) {
+            me.fireEvent('mousedown', evt);
+            $(me.container).on('mousemove', function (evt) {
+                me.fireEvent('mousemove', evt);
+            });
+        });
+        $(me.container).on('mouseup', function (evt) {
+            me.fireEvent('mouseup', evt);
+
+        });
     }
 };
+
+function MouseMoveSelect(cmd, evt) {
+    var me = this;
+    endCell = evt && me.getParentTdOrTh(evt.target || evt.srcElement);
+    var table = me.document.getElementById('tableInstant' + me.uid);
+    me.update(table);
+    var rng = startCell && endCell && me.getCellsRange(startCell, endCell);
+    rng && me.setSelected(rng);
+    me.range = rng;
+
+    if (cmd == 'mouseup') {
+        me.removeListener('mousemove', MouseMoveSelect);
+    }
+}
 
 var JTable = JT.JTable = function (options) {
     var me = this;
@@ -413,7 +419,7 @@ JT.commands["inserttable"] = {
         JUtils.cssRule('tableSt',
             this.options.tableStyle + this.options.selectTableStyle, me.document);
         JUtils.remove(div, true);
-        a.fireEvent('mousedown');
+        me.fireEvent('readyLoad');
     }
 };
 JT.commands["deletetable"] = {
@@ -497,6 +503,42 @@ JT.commands["deletetitlerow"] = {
         }
     }
 };
+JT.commands["cellalign"] = {
+    queryCommandState: function () {
+
+    },
+    execCommand: function (cmd, align) {
+        var me = this;
+        var doc = me.document || document;
+        var table = doc.getElementById('tableInstant' + me.uid);
+        if (table && table.nodeType == 1) {
+            var selectedTds = this.getSelectedArr(this);
+            if (selectedTds.length) {
+                for (var i = 0, ci; ci = selectedTds[i++];) {
+                    ci.setAttribute('align', align);
+                }
+            }
+        }
+    }
+};
+JT.commands["cellvalign"] = {
+    queryCommandState: function () {
+
+    },
+    execCommand: function (cmd, align) {
+        var me = this;
+        var doc = me.document || document;
+        var table = doc.getElementById('tableInstant' + me.uid);
+        if (table && table.nodeType == 1) {
+            var selectedTds = this.getSelectedArr(this);
+            if (selectedTds.length) {
+                for (var i = 0, ci; ci = selectedTds[i++];) {
+                    ci.setAttribute('vAlign', align);
+                }
+            }
+        }
+    }
+};
 JT.commands["deletetitlecol"] = {
     queryCommandState: function () {
 
@@ -512,7 +554,121 @@ JT.commands["deletetitlecol"] = {
         }
     }
 };
+JT.commands["insertrow"] = {
+    queryCommandState: function () {
 
+    },
+    execCommand: function () {
+        var me = this, tableItems = this.getTableItemsByRange(this),
+            cell = tableItems.cell;
+        if (!cell.length) {
+            var rowIndex = me.document.findParentByTagName(cell, 'TR').rowIndex;
+            this.insertRow(rowIndex, cell);
+        } else {
+            var range = this.range;
+            for (var i = 0, len = range.endRowIndex - range.beginRowIndex + 1; i < len; i++) {
+                this.insertRow(range.beginRowIndex, cell[i]);
+            }
+        }
+    }
+};
+JT.commands["insertrownext"] = {
+    queryCommandState: function () {
+
+    },
+    execCommand: function () {
+        var me = this, tableItems = this.getTableItemsByRange(this),
+            cell = tableItems.cell, rowIndexs = [0], rowSpan = 0;
+
+        for (var i = 0; i < cell.length; i++) {
+            var rowIndex = JUtils.findParentByTagName(cell[i], 'TR').rowIndex;
+            rowIndexs.push(rowIndex);
+        }
+        rowIndexs.sort();
+        rowSpan = rowIndexs[rowIndexs.length - 1] - rowIndexs[0];
+        console.log(rowSpan);
+        if (!cell.length) {
+            var rowIndex = me.document.findParentByTagName(cell, 'TR').rowIndex;
+            this.insertRow(rowIndex + rowSpan, cell);
+        } else {
+            var range = this.range;
+            for (var i = 0, len = range.endRowIndex - range.beginRowIndex + 1; i < len; i++) {
+                this.insertRow(range.endRowIndex + 1, cell[i]);
+            }
+        }
+    }
+};
+JT.commands["insertcol"] = {
+    queryCommandState: function () {
+
+    },
+    execCommand: function () {
+        var me = this, tableItems = this.getTableItemsByRange(this),
+            cell = tableItems.cell;
+        if (!cell.length) {
+            //var rowIndex=me.document.findParentByTagName(cell,'TR').rowIndex;
+            this.insertCol(cell.colIndex, cell);
+        } else {
+            var range = this.range;
+            for (var i = 0, len = range.endColIndex - range.beginColIndex + 1; i < len; i++) {
+                this.insertCol(range.beginColIndex, cell[i]);
+            }
+        }
+    }
+};
+JT.commands["insertcolnext"] = {
+    queryCommandState: function () {
+
+    },
+    execCommand: function () {
+        var me = this, tableItems = this.getTableItemsByRange(this),
+            cell = tableItems.cell;
+        if (!cell.length) {
+            var colIndex = me.document.findParentByTagName(cell, 'TR').colIndex;
+            this.insertCol(colIndex, cell);
+        } else {
+            var range = this.range;
+            for (var i = 0, len = range.endColIndex - range.beginColIndex + 1; i < len; i++) {
+                this.insertCol(range.endColIndex + 1, cell[i]);
+            }
+        }
+    }
+};
+JT.commands["deleterow"] = {
+    queryCommandState: function () {
+
+    },
+    execCommand: function (cmd, opt) {
+        var me = this,tableItems = this.getTableItemsByRange(this),
+            cell = tableItems.cell;
+        if (!cell.length) {
+            var row = me.document.findParentByTagName(cell, 'TR').rowIndex;
+            this.deleteRow(row);
+        }else{
+            var range=this.range;
+            for (var i = 0, len = range.endRowIndex - range.beginRowIndex + 1; i < len; i++) {
+                this.deleteRow(range.beginRowIndex);
+            }
+        }
+    }
+};
+JT.commands["deletecol"] = {
+    queryCommandState: function () {
+
+    },
+    execCommand: function (cmd, opt) {
+        var me = this,tableItems = this.getTableItemsByRange(this),
+            cell = tableItems.cell;
+        if (!cell.length) {
+            this.deleteRow(cell.colIndex);
+        }else{
+            var range=this.range;
+            for (var i = 0, len = range.endColIndex - range.beginColIndex + 1; i < len; i++) {
+                this.deleteCol(range.beginColIndex);
+            }
+        }
+    }
+};
 var TableInfo = JTable.TableInfo = function (table) {
     this.table = table;
     this.indexTable = [];
@@ -525,7 +681,7 @@ var TableInfo = JTable.TableInfo = function (table) {
  * 根据当前点击的td或者table获取索引对象
  * @param tdOrTable
  */
-getJTable = function (tdOrTable) {
+function getJTable(tdOrTable) {
     var tag = tdOrTable.tagName.toLowerCase();
     tdOrTable = (tag == "td" || tag == "th" || tag == 'caption') ? JUtils.findParentByTagName(tdOrTable, "table", true) : tdOrTable;
     if (!tdOrTable.ueTable) {
@@ -587,7 +743,103 @@ var dragButtonTimer,
 //双击允许的时间范围
     dblclickTime = 360;
 JAction.prototype = {
-    addSelectedClass:function (cells) {
+    deleteCol:function (colIndex) {
+        var indexTable = this.indexTable,
+            tableRows = this.table.rows,
+            backTableWidth = this.table.getAttribute("width"),
+            backTdWidth = 0,
+            rowsNum = this.rowsNum,
+            cacheMap = {};
+        for (var rowIndex = 0; rowIndex < rowsNum;) {
+            var infoRow = indexTable[rowIndex],
+                cellInfo = infoRow[colIndex],
+                key = cellInfo.rowIndex + '_' + cellInfo.colIndex;
+            // 跳过已经处理过的Cell
+            if (cacheMap[key])continue;
+            cacheMap[key] = 1;
+            var cell = this.getCell(cellInfo.rowIndex, cellInfo.cellIndex);
+            if (!backTdWidth) backTdWidth = cell && parseInt(cell.offsetWidth / cell.colSpan, 10).toFixed(0);
+            // 如果Cell的colSpan大于1, 就修改colSpan, 否则就删掉这个Cell
+            if (cell.colSpan > 1) {
+                cell.colSpan--;
+            } else {
+                tableRows[rowIndex].deleteCell(cellInfo.cellIndex);
+            }
+            rowIndex += cellInfo.rowSpan || 1;
+        }
+        this.table.setAttribute("width", backTableWidth - backTdWidth);
+        this.update();
+    },
+    /**
+     * 删除一行单元格
+     * @param rowIndex
+     */
+    deleteRow:function (rowIndex) {
+        var row = this.table.rows[rowIndex],
+            infoRow = this.indexTable[rowIndex],
+            colsNum = this.colsNum,
+            count = 0;     //处理计数
+        for (var colIndex = 0; colIndex < colsNum;) {
+            var cellInfo = infoRow[colIndex],
+                cell = this.getCell(cellInfo.rowIndex, cellInfo.cellIndex);
+            if (cell.rowSpan > 1) {
+                if (cellInfo.rowIndex == rowIndex) {
+                    var clone = cell.cloneNode(true);
+                    clone.rowSpan = cell.rowSpan - 1;
+                    clone.innerHTML = "";
+                    cell.rowSpan = 1;
+                    var nextRowIndex = rowIndex + 1,
+                        nextRow = this.table.rows[nextRowIndex],
+                        insertCellIndex,
+                        preMerged = this.getPreviewMergedCellsNum(nextRowIndex, colIndex) - count;
+                    if (preMerged < colIndex) {
+                        insertCellIndex = colIndex - preMerged - 1;
+                        //nextRow.insertCell(insertCellIndex);
+                        JUtils.insertAfter(nextRow.cells[insertCellIndex], clone);
+                    } else {
+                        if (nextRow.cells.length) nextRow.insertBefore(clone, nextRow.cells[0])
+                    }
+                    count += 1;
+                    //cell.parentNode.removeChild(cell);
+                }
+            }
+            colIndex += cell.colSpan || 1;
+        }
+        var deleteTds = [], cacheMap = {};
+        for (colIndex = 0; colIndex < colsNum; colIndex++) {
+            var tmpRowIndex = infoRow[colIndex].rowIndex,
+                tmpCellIndex = infoRow[colIndex].cellIndex,
+                key = tmpRowIndex + "_" + tmpCellIndex;
+            if (cacheMap[key])continue;
+            cacheMap[key] = 1;
+            cell = this.getCell(tmpRowIndex, tmpCellIndex);
+            deleteTds.push(cell);
+        }
+        var mergeTds = [];
+        JUtils.each(deleteTds, function (td) {
+            if (td.rowSpan == 1) {
+                td.parentNode.removeChild(td);
+            } else {
+                mergeTds.push(td);
+            }
+        });
+        JUtils.each(mergeTds, function (td) {
+            td.rowSpan--;
+        });
+        row.parentNode.removeChild(row);
+        //浏览器方法本身存在bug,采用自定义方法删除
+        //this.table.deleteRow(rowIndex);
+        this.update();
+    },
+    getSelectedArr: function (editor) {
+        var cell = this.getTableItemsByRange(editor).cell;
+        if (cell) {
+            return cell.length ? cell : [];
+        } else {
+            return [];
+        }
+    },
+    addSelectedClass: function (cells) {
         JUtils.each(cells, function (cell) {
             JUtils.addClass(cell, "selectTdClass");
         })
@@ -595,7 +847,7 @@ JAction.prototype = {
     /**
      * 根据range设置已经选中的单元格
      */
-    setSelected:function (range) {
+    setSelected: function (range) {
         var cells = this.getCells(range);
         this.addSelectedClass(cells);
         this.selectedTds = cells;
@@ -604,12 +856,12 @@ JAction.prototype = {
     /**
      * 清理已经选中的单元格
      */
-    clearSelected:function () {
+    clearSelected: function () {
         this.removeSelectedClass(this.selectedTds);
         this.selectedTds = [];
         this.cellsRange = {};
     },
-    removeSelectedClass:function (cells) {
+    removeSelectedClass: function (cells) {
         JUtils.each(cells, function (cell) {
             JUtils.removeClasses(cell, "selectTdClass");
         })
@@ -617,7 +869,7 @@ JAction.prototype = {
     /**
      * 依据cellsRange获取对应的单元格集合
      */
-    getCells:function (range) {
+    getCells: function (range) {
         //每次获取cells之前必须先清除上次的选择，否则会对后续获取操作造成影响
         this.clearSelected();
         var beginRowIndex = range.beginRowIndex,
@@ -645,7 +897,7 @@ JAction.prototype = {
     /**
      * 获取单元格的索引信息
      */
-    getCellInfo:function (cell) {
+    getCellInfo: function (cell) {
         if (!cell) return;
         var cellIndex = cell.cellIndex,
             rowIndex = cell.parentNode.rowIndex,
@@ -658,14 +910,21 @@ JAction.prototype = {
             }
         }
     },
-    getTableItemsByRange:function (editor) {
-        var start = editor.selection.getStart();
-        //ff下会选中bookmark
-        if (start && start.id && start.id.indexOf('_baidu_bookmark_start_') === 0 && start.nextSibling) {
-            start = start.nextSibling;
-        }
+    getTableItemsByRange: function (editor) {
+        var cell = editor && editor.selectedTds,
+            tr = cell && cell.parentNode,
+            caption = editor && editor.table.getElementsByTagName('caption', true),
+            table = caption ? caption.parentNode : tr && tr.parentNode.parentNode;
+        return {
+            cell: cell,
+            tr: tr,
+            table: table,
+            caption: caption
+        };
+
+        //return editor&&editor.selectedTds;
     },
-    getJTableBySelected : function (editor) {
+    getJTableBySelected: function (editor) {
         var table = this.getTableItemsByRange(editor).table;
         if (table && table.ueTable && table.ueTable.selectedTds.length) {
             return table.ueTable;
@@ -854,7 +1113,7 @@ JAction.prototype = {
 
         function doDblClick(evt) {
             clearTimeout(timer);
-            var ut = getUETable(table),
+            var ut = getJTable(table),
                 start = table.rows[0].cells[0],
                 end = ut.getLastCell(),
                 range = ut.getCellsRange(start, end);
@@ -867,7 +1126,7 @@ JAction.prototype = {
     /**
      * 根据始末两个单元格获取被框选的所有单元格范围
      */
-    getCellsRange:function (cellA, cellB) {
+    getCellsRange: function (cellA, cellB) {
         function checkRange(beginRowIndex, beginColIndex, endRowIndex, endColIndex) {
             var tmpBeginRowIndex = beginRowIndex,
                 tmpBeginColIndex = beginColIndex,
@@ -920,10 +1179,10 @@ JAction.prototype = {
             } else {
                 // 不需要扩展TableRange的情况
                 return {
-                    beginRowIndex:beginRowIndex,
-                    beginColIndex:beginColIndex,
-                    endRowIndex:endRowIndex,
-                    endColIndex:endColIndex
+                    beginRowIndex: beginRowIndex,
+                    beginColIndex: beginColIndex,
+                    endRowIndex: endRowIndex,
+                    endColIndex: endColIndex
                 };
             }
         }
@@ -933,10 +1192,10 @@ JAction.prototype = {
                 cellAInfo = me.getCellInfo(cellA);
             if (cellA === cellB) {
                 return {
-                    beginRowIndex:cellAInfo.rowIndex,
-                    beginColIndex:cellAInfo.colIndex,
-                    endRowIndex:cellAInfo.rowIndex + cellAInfo.rowSpan - 1,
-                    endColIndex:cellAInfo.colIndex + cellAInfo.colSpan - 1
+                    beginRowIndex: cellAInfo.rowIndex,
+                    beginColIndex: cellAInfo.colIndex,
+                    endRowIndex: cellAInfo.rowIndex + cellAInfo.rowSpan - 1,
+                    endColIndex: cellAInfo.colIndex + cellAInfo.colSpan - 1
                 };
             }
             var cellBInfo = me.getCellInfo(cellB);
@@ -979,7 +1238,7 @@ JAction.prototype = {
         return '';
     },
     mouseCoords: function (evt) {
-        var me=this;
+        var me = this;
         if (evt.pageX || evt.pageY) {
             return {x: evt.pageX, y: evt.pageY};
         }
@@ -2659,5 +2918,7 @@ var ie = browser.ie,
     gecko = browser.gecko,
     opera = browser.opera;
 JUtils.inherits(JTable, JEventBase);
+JUtils.inherits(JTable, JEvent);
 JUtils.inherits(JTable, JAction);
 JUtils.inherits(TableInfo, JAction);
+JUtils.inherits(JTable, TableInfo);

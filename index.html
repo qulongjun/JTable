@@ -5,7 +5,7 @@
     <title>Title</title>
 </head>
 <body>
-<div style="margin-bottom: 50px;">
+<div style="margin-bottom: 10px;">
     <button id="createTable">创建表格</button>
     <button id="deleteTable">删除表格</button>
     <button id="insertCaption">插入表头</button>
@@ -14,6 +14,24 @@
     <button id="deleteTitleRow">删除标题行</button>
     <button id="insertTitleCol">插入标题列</button>
     <button id="deletetitleCol">删除标题列</button>
+
+</div>
+<div style="margin-bottom: 10px;">
+    <button id="aliginLeft">水平左对齐</button>
+    <button id="aliginCenter">水平居中对齐</button>
+    <button id="aliginRight">水平右对齐</button>
+    <button id="valiginTop">垂直上对齐</button>
+    <button id="valiginMiddle">垂直居中对齐</button>
+    <button id="valiginBottom">垂直下对齐</button>
+    <button id="valiginBaseline">垂直基线对齐</button>
+</div>
+<div style="margin-bottom: 10px;">
+    <button id="insertRowUp">向上插入一行</button>
+    <button id="insertRowDown">向下插入一行</button>
+    <button id="insertColLeft">向左插入一列</button>
+    <button id="insertColRight">向右插入一列</button>
+    <button id="deleteRow">删除选中行</button>
+    <button id="deleteCol">删除选中列</button>
 </div>
 <div id="table">
 </div>
@@ -52,17 +70,45 @@
     $('#deleteCaption').on('click',function () {
         a.execCommand("deletecaption");
     });
-
-    $(a.container).on('mousedown',function (evt) {
-        a.fireEvent('mousedown',evt);
-
+    $('#aliginLeft').on('click',function () {
+        a.execCommand('cellalign','left');
     });
-    $(a.container).on('mouseup',function (evt) {
-        a.fireEvent('mouseup',evt);
-
+    $('#aliginCenter').on('click',function () {
+        a.execCommand('cellalign','center');
     });
-
-
+    $('#aliginRight').on('click',function () {
+        a.execCommand('cellalign','right');
+    });
+    $('#valiginTop').on('click',function () {
+        a.execCommand('cellvalign','top');
+    });
+    $('#valiginMiddle').on('click',function () {
+        a.execCommand('cellvalign','middle');
+    });
+    $('#valiginBottom').on('click',function () {
+        a.execCommand('cellvalign','bottom');
+    });
+    $('#valiginBaseline').on('click',function () {
+        a.execCommand('cellvalign','baseline');
+    });
+    $('#insertRowUp').on('click',function () {
+        a.execCommand('insertrow');
+    });
+    $('#insertRowDown').on('click',function () {
+        a.execCommand('insertrownext');
+    });
+    $('#insertColLeft').on('click',function () {
+        a.execCommand('insertcol');
+    });
+    $('#insertColRight').on('click',function () {
+        a.execCommand('insertcolnext');
+    });
+    $('#deleteRow').on('click',function () {
+        a.execCommand('deleterow');
+    });
+    $('#deleteCol').on('click',function () {
+        a.execCommand('deletecol');
+    });
 </script>
 </body>
 </html>
