@@ -171,7 +171,30 @@ var JEvent = JT.JEvent = {
     init: function () {
         var me = this;
         //click();
-        JEvent.click.call(me);
+        //JEvent.click.call(me);
+        var startCell,endCell;
+        me.addListener('mousedown',function (cmd,evt) {
+            startCell=evt.target;
+        });
+        me.addListener('mouseup',function (cmd,evt) {
+            endCell=evt.target;
+            console.log(startCell.cellIndex);
+            console.log(endCell.cellIndex);
+            var table = me.document.getElementById('tableInstant' + me.uid);
+            me.update(table);
+            var rng = me.getCellsRange(startCell,endCell);
+            console.log(rng);
+            me.setSelected(rng);
+        });
+        me.addListener('mousemove',function (cmd,evt) {
+           //console.log(me.getRelation(evt.target,me.mouseCoords(evt)));
+            //me.addSelectedClass();
+            //console.log(evt.target.cellIndex);
+            //console.log(this.getCell(evt.target.parentNode.rowIndex,evt.target.cellIndex));
+            
+        });
+
+
     },
     click: function () {
         // var me=this;
@@ -390,6 +413,7 @@ JT.commands["inserttable"] = {
         JUtils.cssRule('tableSt',
             this.options.tableStyle + this.options.selectTableStyle, me.document);
         JUtils.remove(div, true);
+        a.fireEvent('mousedown');
     }
 };
 JT.commands["deletetable"] = {
@@ -482,7 +506,7 @@ JT.commands["deletetitlecol"] = {
         var doc = me.document || document;
         var table = doc.getElementById('tableInstant' + me.uid);
         if (table && table.nodeType == 1) {
-            for(var i = 0; i< table.rows.length; i++ ){
+            for (var i = 0; i < table.rows.length; i++) {
                 JUtils.remove(table.rows[i].children[0])
             }
         }
@@ -494,8 +518,8 @@ var TableInfo = JTable.TableInfo = function (table) {
     this.indexTable = [];
     this.selectedTds = [];
     this.cellsRange = {};
-    //this.update(table);
-    JAction.prototype.update(table);
+    this.update(table);
+    //JAction.prototype.update(table);
 };
 /**
  * 根据当前点击的td或者table获取索引对象
@@ -532,94 +556,444 @@ function getTableWidth(editor, needIEHack, defaultValue) {
     return body.offsetWidth - (needIEHack ? parseInt(JUtils.getComputedStyle(body, 'margin-left'), 10) * 2 : 0) - defaultValue.tableBorder * 2 - (editor.options.offsetWidth || 0);
     //return editor.options.tableWidth;
 }
-//处理拖动及框选相关方法
-var startTd = null, //鼠标按下时的锚点td
+
+var JAction = JTable.JAction = function () {
+
+
+};
+var dragButtonTimer,
+    startTd = null, //鼠标按下时的锚点td
     currentTd = null, //当前鼠标经过时的td
     onDrag = "", //指示当前拖动状态，其值可为"","h","v" ,分别表示未拖动状态，横向拖动状态，纵向拖动状态，用于鼠标移动过程中的判断
     onBorder = false, //检测鼠标按下时是否处在单元格边缘位置
     dragButton = null,
     dragOver = false,
     dragLine = null, //模拟的拖动线
-    dragTd = null;    //发生拖动的目标td
-function mouseMoveEvent(evt) {
-    // if (isEditorDisabled()) {
-    //     return;
-    // }
-    try {
-        //普通状态下鼠标移动
-        var target = getParentTdOrTh(evt.target || evt.srcElement),
-            pos;
+    dragTd = null,    //发生拖动的目标td
+    tabTimer = null,
+//拖动计时器
+    tableDragTimer = null,
+//双击计时器
+    tableResizeTimer = null,
+//单元格最小宽度
+    cellMinWidth = 5,
+    isInResizeBuffer = false,
 
-        //区分用户的行为是拖动还是双击
-        // if (isInResizeBuffer) {
-        //
-        //     me.body.style.webkitUserSelect = 'none';
-        //
-        //     if (Math.abs(userActionStatus.x - evt.clientX) > offsetOfTableCell || Math.abs(userActionStatus.y - evt.clientY) > offsetOfTableCell) {
-        //         clearTableDragTimer();
-        //         isInResizeBuffer = false;
-        //         singleClickState = 0;
-        //         //drag action
-        //         tableBorderDrag(evt);
-        //     }
-        // }
-
-        //修改单元格大小时的鼠标移动
-        if (onDrag && dragTd) {
-            singleClickState = 0;
-            me.body.style.webkitUserSelect = 'none';
-            me.selection.getNative()[browser.ie9below ? 'empty' : 'removeAllRanges']();
-            pos = mouseCoords(evt);
-            toggleDraggableState(me, true, onDrag, pos, target);
-            if (onDrag == "h") {
-                dragLine.style.left = getPermissionX(dragTd, evt) + "px";
-            } else if (onDrag == "v") {
-                dragLine.style.top = getPermissionY(dragTd, evt) + "px";
-            }
-            return;
-        }
-        //当鼠标处于table上时，修改移动过程中的光标状态
-        if (target) {
-            //针对使用table作为容器的组件不触发拖拽效果
-            if (me.fireEvent('excludetable', target) === true)
-                return;
-            pos = mouseCoords(evt);
-            var state = getRelation(target, pos),
-                table = domUtils.findParentByTagName(target, "table", true);
-
-            if (inTableSide(table, target, evt, true)) {
-                if (me.fireEvent("excludetable", table) === true) return;
-                me.body.style.cursor = "url(" + me.options.cursorpath + "h.png),pointer";
-            } else if (inTableSide(table, target, evt)) {
-                if (me.fireEvent("excludetable", table) === true) return;
-                me.body.style.cursor = "url(" + me.options.cursorpath + "v.png),pointer";
-            } else {
-                me.body.style.cursor = "text";
-                var curCell = target;
-                if (/\d/.test(state)) {
-                    state = state.replace(/\d/, '');
-                    target = getUETable(target).getPreviewCell(target, state == "v");
-                }
-                //位于第一行的顶部或者第一列的左边时不可拖动
-                toggleDraggableState(me, target ? !!state : false, target ? state : '', pos, target);
-
-            }
-        } else {
-            toggleDragButton(false, table, me);
-        }
-
-    } catch (e) {
-        throw e;
-    }
-};
-function getParentTdOrTh(ele) {
-    if (ele.tagName == "TD" || ele.tagName == "TH") return ele;
-    var td;
-    if (td = JUtils.findParentByTagName(ele, "td", true) || JUtils.findParentByTagName(ele, "th", true)) return td;
-    return null;
-}
-var JAction = JTable.JAction = {};
+//鼠标偏移距离
+    offsetOfTableCell = 10,
+//记录在有限时间内的点击状态， 共有3个取值， 0, 1, 2。 0代表未初始化， 1代表单击了1次，2代表2次
+    singleClickState = 0,
+    userActionStatus = null,
+//双击允许的时间范围
+    dblclickTime = 360;
 JAction.prototype = {
+    addSelectedClass:function (cells) {
+        JUtils.each(cells, function (cell) {
+            JUtils.addClass(cell, "selectTdClass");
+        })
+    },
+    /**
+     * 根据range设置已经选中的单元格
+     */
+    setSelected:function (range) {
+        var cells = this.getCells(range);
+        this.addSelectedClass(cells);
+        this.selectedTds = cells;
+        this.cellsRange = range;
+    },
+    /**
+     * 清理已经选中的单元格
+     */
+    clearSelected:function () {
+        this.removeSelectedClass(this.selectedTds);
+        this.selectedTds = [];
+        this.cellsRange = {};
+    },
+    removeSelectedClass:function (cells) {
+        JUtils.each(cells, function (cell) {
+            JUtils.removeClasses(cell, "selectTdClass");
+        })
+    },
+    /**
+     * 依据cellsRange获取对应的单元格集合
+     */
+    getCells:function (range) {
+        //每次获取cells之前必须先清除上次的选择，否则会对后续获取操作造成影响
+        this.clearSelected();
+        var beginRowIndex = range.beginRowIndex,
+            beginColIndex = range.beginColIndex,
+            endRowIndex = range.endRowIndex,
+            endColIndex = range.endColIndex,
+            cellInfo, rowIndex, colIndex, tdHash = {}, returnTds = [];
+        for (var i = beginRowIndex; i <= endRowIndex; i++) {
+            for (var j = beginColIndex; j <= endColIndex; j++) {
+                cellInfo = this.indexTable[i][j];
+                rowIndex = cellInfo.rowIndex;
+                colIndex = cellInfo.colIndex;
+                // 如果Cells里已经包含了此Cell则跳过
+                var key = rowIndex + '|' + colIndex;
+                if (tdHash[key]) continue;
+                tdHash[key] = 1;
+                if (rowIndex < i || colIndex < j || rowIndex + cellInfo.rowSpan - 1 > endRowIndex || colIndex + cellInfo.colSpan - 1 > endColIndex) {
+                    return null;
+                }
+                returnTds.push(this.getCell(rowIndex, cellInfo.cellIndex));
+            }
+        }
+        return returnTds;
+    },
+    /**
+     * 获取单元格的索引信息
+     */
+    getCellInfo:function (cell) {
+        if (!cell) return;
+        var cellIndex = cell.cellIndex,
+            rowIndex = cell.parentNode.rowIndex,
+            rowInfo = this.indexTable[rowIndex],
+            numCols = this.colsNum;
+        for (var colIndex = cellIndex; colIndex < numCols; colIndex++) {
+            var cellInfo = rowInfo[colIndex];
+            if (cellInfo.rowIndex === rowIndex && cellInfo.cellIndex === cellIndex) {
+                return cellInfo;
+            }
+        }
+    },
+    getTableItemsByRange:function (editor) {
+        var start = editor.selection.getStart();
+        //ff下会选中bookmark
+        if (start && start.id && start.id.indexOf('_baidu_bookmark_start_') === 0 && start.nextSibling) {
+            start = start.nextSibling;
+        }
+    },
+    getJTableBySelected : function (editor) {
+        var table = this.getTableItemsByRange(editor).table;
+        if (table && table.ueTable && table.ueTable.selectedTds.length) {
+            return table.ueTable;
+        }
+        return null;
+    },
+    mouseMoveEvent: function mouseMoveEvent(evt) {
+        //处理拖动及框选相关方法
+        var me = this;
+        try {
+            //普通状态下鼠标移动
+            var target = this.getParentTdOrTh(evt.target || evt.srcElement),
+                pos;
+            //修改单元格大小时的鼠标移动
+            if (onDrag && dragTd) {
+                singleClickState = 0;
+                me.body.style.webkitUserSelect = 'none';
+                me.selection.getNative()[browser.ie9below ? 'empty' : 'removeAllRanges']();
+                pos = mouseCoords(evt);
+                this.toggleDraggableState(me, true, onDrag, pos, target);
+                if (onDrag == "h") {
+                    dragLine.style.left = getPermissionX(dragTd, evt) + "px";
+                } else if (onDrag == "v") {
+                    dragLine.style.top = getPermissionY(dragTd, evt) + "px";
+                }
+                return;
+            }
+            //当鼠标处于table上时，修改移动过程中的光标状态
+            if (target) {
+                //针对使用table作为容器的组件不触发拖拽效果
+                // if (me.fireEvent('excludetable', target) === true)
+                //     return;
+                pos = this.mouseCoords(evt);
+                var state = this.getRelation(target, pos),
+                    table = JUtils.findParentByTagName(target, "table", true);
+
+                if (this.inTableSide(table, target, evt, true)) {
+                    if (me.fireEvent("excludetable", table) === true) return;
+                    me.document.body.style.cursor = "url(" + me.options.cursorpath + "h.png),pointer";
+                } else if (this.inTableSide(table, target, evt)) {
+                    if (me.fireEvent("excludetable", table) === true) return;
+                    me.document.body.style.cursor = "url(" + me.options.cursorpath + "v.png),pointer";
+                } else {
+                    me.document.body.style.cursor = "text";
+                    var curCell = target;
+                    if (/\d/.test(state)) {
+                        state = state.replace(/\d/, '');
+                        target = getJTable(target).getPreviewCell(target, state == "v");
+                    }
+                    //位于第一行的顶部或者第一列的左边时不可拖动
+                    this.toggleDraggableState(me, target ? !!state : false, target ? state : '', pos, target);
+
+                }
+            } else {
+                this.toggleDragButton(false, table, me);
+            }
+
+        } catch (e) {
+            throw e;
+        }
+    },
+    getDragLine: function (editor, doc) {
+        if (mousedown)return;
+        dragLine = editor.document.createElement("div");
+        JUtils.setAttributes(dragLine, {
+            id: "ue_tableDragLine",
+            unselectable: 'on',
+            contenteditable: false,
+            'onresizestart': 'return false',
+            'ondragstart': 'return false',
+            'onselectstart': 'return false',
+            style: "background-color:blue;position:absolute;padding:0;margin:0;background-image:none;border:0px none;opacity:0;filter:alpha(opacity=0)"
+        });
+        editor.appendChild(dragLine);
+    },
+    /**
+     * 依据state（v|h）在cell位置显示横线
+     * @param state
+     * @param cell
+     */
+    showDragLineAt: function (state, cell) {
+        if (!cell) return;
+        var table = JUtils.findParentByTagName(cell, "table"),
+            caption = table.getElementsByTagName('caption'),
+            width = table.offsetWidth,
+            height = table.offsetHeight - (caption.length > 0 ? caption[0].offsetHeight : 0),
+            tablePos = JUtils.getXY(table),
+            cellPos = JUtils.getXY(cell), css;
+        switch (state) {
+            case "h":
+                css = 'height:' + height + 'px;top:' + (tablePos.y + (caption.length > 0 ? caption[0].offsetHeight : 0)) + 'px;left:' + (cellPos.x + cell.offsetWidth);
+                dragLine.style.cssText = css + 'px;position: absolute;display:block;background-color:blue;width:1px;border:0; color:blue;opacity:.3;filter:alpha(opacity=30)';
+                break;
+            case "v":
+                css = 'width:' + width + 'px;left:' + tablePos.x + 'px;top:' + (cellPos.y + cell.offsetHeight );
+                //必须加上border:0和color:blue，否则低版ie不支持背景色显示
+                dragLine.style.cssText = css + 'px;overflow:hidden;position: absolute;display:block;background-color:blue;height:1px;border:0;color:blue;opacity:.2;filter:alpha(opacity=20)';
+                break;
+            default:
+        }
+    },
+    hideDragLine: function (editor) {
+        if (mousedown)return;
+        var line;
+        while (line = editor.document.getElementById('ue_tableDragLine')) {
+            JUtils.remove(line)
+        }
+    },
+    toggleDragButton: function (show, table, editor) {
+        //var dragOver = null;
+        if (!show) {
+            if (dragOver)return;
+            dragButtonTimer = setTimeout(function () {
+                !dragOver && dragButton && dragButton.parentNode && dragButton.parentNode.removeChild(dragButton);
+            }, 2000);
+        } else {
+            this.createDragButton(table, editor);
+        }
+    },
+    /**
+     * 移动状态切换
+     */
+
+    toggleDraggableState: function (editor, draggable, dir, mousePos, cell) {
+        try {
+            editor.document.body.style.cursor = dir == "h" ? "col-resize" : dir == "v" ? "row-resize" : "text";
+            if (browser.ie) {
+                if (dir && !mousedown && !getJTableBySelected(editor)) {
+                    this.getDragLine(editor, editor.document);
+                    this.showDragLineAt(dir, cell);
+                } else {
+                    this.hideDragLine(editor)
+                }
+            }
+            onBorder = draggable;
+        } catch (e) {
+            //showError(e);
+            throw e;
+        }
+    },
+    inTableSide: function (table, cell, evt, top) {
+        var pos = this.mouseCoords(evt),
+            state = this.getRelation(cell, pos);
+
+        if (top) {
+            var caption = table.getElementsByTagName("caption")[0],
+                capHeight = caption ? caption.offsetHeight : 0;
+            return (state == "v1") && ((pos.y - JUtils.getXY(table).y - capHeight) < 8);
+        } else {
+            return (state == "h1") && ((pos.x - JUtils.getXY(table).x) < 8);
+        }
+    },
+    createDragButton: function (table, editor) {
+        var pos = JUtils.getXY(table),
+            doc = table.ownerDocument;
+        if (dragButton && dragButton.parentNode)return dragButton;
+        dragButton = doc.createElement("div");
+        dragButton.contentEditable = false;
+        dragButton.innerHTML = "";
+        dragButton.style.cssText = "width:15px;height:15px;background-image:url(" + editor.options.UEDITOR_HOME_URL + "dialogs/table/dragicon.png);position: absolute;cursor:move;top:" + (pos.y - 15) + "px;left:" + (pos.x) + "px;";
+        JUtils.unSelectable(dragButton);
+        dragButton.onmouseover = function (evt) {
+            dragOver = true;
+        };
+        dragButton.onmouseout = function (evt) {
+            dragOver = false;
+        };
+        JUtils.on(dragButton, 'click', function (type, evt) {
+            doClick(evt, this);
+        });
+        JUtils.on(dragButton, 'dblclick', function (type, evt) {
+            doDblClick(evt);
+        });
+        JUtils.on(dragButton, 'dragstart', function (type, evt) {
+            JUtils.preventDefault(evt);
+        });
+        var timer;
+
+        function doClick(evt, button) {
+            // 部分浏览器下需要清理
+            clearTimeout(timer);
+            timer = setTimeout(function () {
+                editor.fireEvent("tableClicked", table, button);
+            }, 300);
+        }
+
+        function doDblClick(evt) {
+            clearTimeout(timer);
+            var ut = getUETable(table),
+                start = table.rows[0].cells[0],
+                end = ut.getLastCell(),
+                range = ut.getCellsRange(start, end);
+            editor.selection.getRange().setStart(start, 0).setCursor(false, true);
+            ut.setSelected(range);
+        }
+
+        doc.appendChild(dragButton);
+    },
+    /**
+     * 根据始末两个单元格获取被框选的所有单元格范围
+     */
+    getCellsRange:function (cellA, cellB) {
+        function checkRange(beginRowIndex, beginColIndex, endRowIndex, endColIndex) {
+            var tmpBeginRowIndex = beginRowIndex,
+                tmpBeginColIndex = beginColIndex,
+                tmpEndRowIndex = endRowIndex,
+                tmpEndColIndex = endColIndex,
+                cellInfo, colIndex, rowIndex;
+            // 通过indexTable检查是否存在超出TableRange上边界的情况
+            if (beginRowIndex > 0) {
+                for (colIndex = beginColIndex; colIndex < endColIndex; colIndex++) {
+                    cellInfo = me.indexTable[beginRowIndex][colIndex];
+                    rowIndex = cellInfo.rowIndex;
+                    if (rowIndex < beginRowIndex) {
+                        tmpBeginRowIndex = Math.min(rowIndex, tmpBeginRowIndex);
+                    }
+                }
+            }
+            // 通过indexTable检查是否存在超出TableRange右边界的情况
+            if (endColIndex < me.colsNum) {
+                for (rowIndex = beginRowIndex; rowIndex < endRowIndex; rowIndex++) {
+                    cellInfo = me.indexTable[rowIndex][endColIndex];
+                    colIndex = cellInfo.colIndex + cellInfo.colSpan - 1;
+                    if (colIndex > endColIndex) {
+                        tmpEndColIndex = Math.max(colIndex, tmpEndColIndex);
+                    }
+                }
+            }
+            // 检查是否有超出TableRange下边界的情况
+            if (endRowIndex < me.rowsNum) {
+                for (colIndex = beginColIndex; colIndex < endColIndex; colIndex++) {
+                    cellInfo = me.indexTable[endRowIndex][colIndex];
+                    rowIndex = cellInfo.rowIndex + cellInfo.rowSpan - 1;
+                    if (rowIndex > endRowIndex) {
+                        tmpEndRowIndex = Math.max(rowIndex, tmpEndRowIndex);
+                    }
+                }
+            }
+            // 检查是否有超出TableRange左边界的情况
+            if (beginColIndex > 0) {
+                for (rowIndex = beginRowIndex; rowIndex < endRowIndex; rowIndex++) {
+                    cellInfo = me.indexTable[rowIndex][beginColIndex];
+                    colIndex = cellInfo.colIndex;
+                    if (colIndex < beginColIndex) {
+                        tmpBeginColIndex = Math.min(cellInfo.colIndex, tmpBeginColIndex);
+                    }
+                }
+            }
+            //递归调用直至所有完成所有框选单元格的扩展
+            if (tmpBeginRowIndex != beginRowIndex || tmpBeginColIndex != beginColIndex || tmpEndRowIndex != endRowIndex || tmpEndColIndex != endColIndex) {
+                return checkRange(tmpBeginRowIndex, tmpBeginColIndex, tmpEndRowIndex, tmpEndColIndex);
+            } else {
+                // 不需要扩展TableRange的情况
+                return {
+                    beginRowIndex:beginRowIndex,
+                    beginColIndex:beginColIndex,
+                    endRowIndex:endRowIndex,
+                    endColIndex:endColIndex
+                };
+            }
+        }
+
+        try {
+            var me = this,
+                cellAInfo = me.getCellInfo(cellA);
+            if (cellA === cellB) {
+                return {
+                    beginRowIndex:cellAInfo.rowIndex,
+                    beginColIndex:cellAInfo.colIndex,
+                    endRowIndex:cellAInfo.rowIndex + cellAInfo.rowSpan - 1,
+                    endColIndex:cellAInfo.colIndex + cellAInfo.colSpan - 1
+                };
+            }
+            var cellBInfo = me.getCellInfo(cellB);
+            // 计算TableRange的四个边
+            var beginRowIndex = Math.min(cellAInfo.rowIndex, cellBInfo.rowIndex),
+                beginColIndex = Math.min(cellAInfo.colIndex, cellBInfo.colIndex),
+                endRowIndex = Math.max(cellAInfo.rowIndex + cellAInfo.rowSpan - 1, cellBInfo.rowIndex + cellBInfo.rowSpan - 1),
+                endColIndex = Math.max(cellAInfo.colIndex + cellAInfo.colSpan - 1, cellBInfo.colIndex + cellBInfo.colSpan - 1);
+
+            return checkRange(beginRowIndex, beginColIndex, endRowIndex, endColIndex);
+        } catch (e) {
+            //throw e;
+        }
+    },
+    /**
+     * 获取鼠标与当前单元格的相对位置
+     * @param ele
+     * @param mousePos
+     */
+    getRelation: function (ele, mousePos) {
+        var cellBorderWidth = 5;//单元格边框大小
+        var elePos = JUtils.getXY(ele);
+
+        if (!elePos) {
+            return '';
+        }
+
+        if (elePos.x + ele.offsetWidth - mousePos.x < cellBorderWidth) {
+            return "h";
+        }
+        if (mousePos.x - elePos.x < cellBorderWidth) {
+            return 'h1'
+        }
+        if (elePos.y + ele.offsetHeight - mousePos.y < cellBorderWidth) {
+            return "v";
+        }
+        if (mousePos.y - elePos.y < cellBorderWidth) {
+            return 'v1'
+        }
+        return '';
+    },
+    mouseCoords: function (evt) {
+        var me=this;
+        if (evt.pageX || evt.pageY) {
+            return {x: evt.pageX, y: evt.pageY};
+        }
+        return {
+            x: evt.clientX + me.document.scrollLeft - me.document.clientLeft,
+            y: evt.clientY + me.document.scrollTop - me.document.clientTop
+        };
+    },
+    getParentTdOrTh: function (ele) {
+        if (ele.tagName == "TD" || ele.tagName == "TH") return ele;
+        var td;
+        if (td = JUtils.findParentByTagName(ele, "td", true) || JUtils.findParentByTagName(ele, "th", true)) return td;
+        return null;
+    },
     /**
      * 更新table对应的索引表
      */
@@ -813,6 +1187,12 @@ JAction.prototype = {
         this.update();
         return row;
     },
+    /**
+     * 根据行列号获取单元格
+     */
+    getCell: function (rowIndex, cellIndex) {
+        return rowIndex < this.rowsNum && this.table.rows[rowIndex].cells[cellIndex] || null;
+    },
     insertCol: function (colIndex, sourceCell, defaultValue) {
         var rowsNum = this.rowsNum,
             rowIndex = 0,
@@ -923,11 +1303,190 @@ JAction.prototype = {
     getWidth: function (cell) {
         if (!cell)return 0;
         return parseInt(JUtils.getComputedStyle(cell, "width"), 10);
-    }
+    },
+    getPreviewCell: function (cell, top) {
+        try {
+            var cellInfo = this.getCellInfo(cell),
+                previewRowIndex, previewColIndex;
+            var len = this.selectedTds.length,
+                range = this.cellsRange;
+            //首行或者首列没有前置单元格
+            if ((!top && (!len ? !cellInfo.colIndex : !range.beginColIndex)) || (top && (!len ? (cellInfo.rowIndex > (this.colsNum - 1)) : (range.endColIndex == this.colsNum - 1)))) return null;
+
+            previewRowIndex = !top ? ( !len ? cellInfo.rowIndex : range.beginRowIndex )
+                : ( !len ? (cellInfo.rowIndex < 1 ? 0 : (cellInfo.rowIndex - 1)) : range.beginRowIndex);
+            previewColIndex = !top ? ( !len ? (cellInfo.colIndex < 1 ? 0 : (cellInfo.colIndex - 1)) : range.beginColIndex - 1)
+                : ( !len ? cellInfo.colIndex : range.endColIndex + 1);
+            return this.getCell(this.indexTable[previewRowIndex][previewColIndex].rowIndex, this.indexTable[previewRowIndex][previewColIndex].cellIndex);
+        } catch (e) {
+            //showError(e);
+            throw e;
+        }
+    },
+    /**
+     * 获取单元格的索引信息
+     */
+    getCellInfo: function (cell) {
+        if (!cell) return;
+        var cellIndex = cell.cellIndex,
+            rowIndex = cell.parentNode.rowIndex,
+            rowInfo = this.indexTable[rowIndex],
+            numCols = this.colsNum;
+        for (var colIndex = cellIndex; colIndex < numCols; colIndex++) {
+            var cellInfo = rowInfo[colIndex];
+            if (cellInfo.rowIndex === rowIndex && cellInfo.cellIndex === cellIndex) {
+                return cellInfo;
+            }
+        }
+    },
 };
 
 
 var JUtils = JT.JUtils = {
+    /**
+     * 检测node节点是否为body节点
+     * @method isBody
+     * @param { Element } node 需要检测的dom元素
+     * @return { Boolean } 给定的元素是否是body元素
+     * @example
+     * ```javascript
+     * //output: true
+     * console.log( UE.dom.JUtils.isBody( document.body ) );
+     * ```
+     */
+    isBody: function (node) {
+        return node && node.nodeType == 1 && node.tagName.toLowerCase() == 'body';
+    },
+    /**
+     * 根据给定的过滤规则filterFn， 查找符合该过滤规则的node节点的第一个祖先节点，
+     * 查找的起点是给定node节点的父节点。
+     * @method findParent
+     * @param { Node } node 需要查找的节点
+     * @param { Function } filterFn 自定义的过滤方法。
+     * @warning 查找的终点是到body节点为止
+     * @remind 自定义的过滤方法filterFn接受一个Node对象作为参数， 该对象代表当前执行检测的祖先节点。 如果该
+     *          节点满足过滤条件， 则要求返回true， 这时将直接返回该节点作为findParent()的结果， 否则， 请返回false。
+     * @return { Node | Null } 如果找到符合过滤条件的节点， 就返回该节点， 否则返回NULL
+     * @example
+     * ```javascript
+     * var filterNode = UE.dom.JUtils.findParent( document.body.firstChild, function ( node ) {
+     *
+     *     //由于查找的终点是body节点， 所以永远也不会匹配当前过滤器的条件， 即这里永远会返回false
+     *     return node.tagName === "HTML";
+     *
+     * } );
+     *
+     * //output: true
+     * console.log( filterNode === null );
+     * ```
+     */
+
+    /**
+     * 根据给定的过滤规则filterFn， 查找符合该过滤规则的node节点的第一个祖先节点，
+     * 如果includeSelf的值为true，则查找的起点是给定的节点node， 否则， 起点是node的父节点
+     * @method findParent
+     * @param { Node } node 需要查找的节点
+     * @param { Function } filterFn 自定义的过滤方法。
+     * @param { Boolean } includeSelf 查找过程是否包含自身
+     * @warning 查找的终点是到body节点为止
+     * @remind 自定义的过滤方法filterFn接受一个Node对象作为参数， 该对象代表当前执行检测的祖先节点。 如果该
+     *          节点满足过滤条件， 则要求返回true， 这时将直接返回该节点作为findParent()的结果， 否则， 请返回false。
+     * @remind 如果includeSelf为true， 则过滤器第一次执行时的参数会是节点本身。
+     *          反之， 过滤器第一次执行时的参数将是该节点的父节点。
+     * @return { Node | Null } 如果找到符合过滤条件的节点， 就返回该节点， 否则返回NULL
+     * @example
+     * ```html
+     * <body>
+     *
+     *      <div id="test">
+     *      </div>
+     *
+     *      <script type="text/javascript">
+     *
+     *          //output: DIV, BODY
+     *          var filterNode = UE.dom.JUtils.findParent( document.getElementById( "test" ), function ( node ) {
+     *
+     *              console.log( node.tagName );
+     *              return false;
+     *
+     *          }, true );
+     *
+     *      </script>
+     * </body>
+     * ```
+     */
+    findParent: function (node, filterFn, includeSelf) {
+        if (node && !JUtils.isBody(node)) {
+            node = includeSelf ? node : node.parentNode;
+            while (node) {
+                if (!filterFn || filterFn(node) || JUtils.isBody(node)) {
+                    return filterFn && !filterFn(node) && JUtils.isBody(node) ? null : node;
+                }
+                node = node.parentNode;
+            }
+        }
+        return null;
+    },
+    /**
+     * 获取元素element相对于viewport的位置坐标
+     * @method getXY
+     * @param { Node } element 需要计算位置的节点对象
+     * @return { Object } 返回形如{x:left,y:top}的一个key-value映射对象， 其中键x代表水平偏移距离，
+     *                          y代表垂直偏移距离。
+     *
+     * @example
+     * ```javascript
+     * var location = UE.dom.JUtils.getXY( document.getElementById("test") );
+     * //output: test的坐标为: 12, 24
+     * console.log( 'test的坐标为： ', location.x, ',', location.y );
+     * ```
+     */
+    getXY: function (element) {
+        var x = 0, y = 0;
+        while (element.offsetParent) {
+            y += element.offsetTop;
+            x += element.offsetLeft;
+            element = element.offsetParent;
+        }
+        return {'x': x, 'y': y};
+    },
+    /**
+     * 将字符串str以','分隔成数组后，将该数组转换成哈希对象， 其生成的hash对象的key为数组中的元素， value为1
+     * @method listToMap
+     * @warning 该方法在生成的hash对象中，会为每一个key同时生成一个另一个全大写的key。
+     * @param { String } str 该字符串将被以','分割为数组， 然后进行转化
+     * @return { Object } 转化之后的hash对象
+     * @example
+     * ```javascript
+     *
+     * //output: Object {UEdtior: 1, UEDTIOR: 1, Hello: 1, HELLO: 1}
+     * console.log( UE.JUtils.listToMap( 'UEdtior,Hello' ) );
+     *
+     * ```
+     */
+
+    /**
+     * 将字符串数组转换成哈希对象， 其生成的hash对象的key为数组中的元素， value为1
+     * @method listToMap
+     * @warning 该方法在生成的hash对象中，会为每一个key同时生成一个另一个全大写的key。
+     * @param { Array } arr 字符串数组
+     * @return { Object } 转化之后的hash对象
+     * @example
+     * ```javascript
+     *
+     * //output: Object {UEdtior: 1, UEDTIOR: 1, Hello: 1, HELLO: 1}
+     * console.log( UE.JUtils.listToMap( [ 'UEdtior', 'Hello' ] ) );
+     *
+     * ```
+     */
+    listToMap: function (list) {
+        if (!list)return {};
+        list = list.constructor == Array ? list : list.split(',');
+        for (var i = 0, ci, obj = {}; ci = list[i++];) {
+            obj[ci.toUpperCase()] = obj[ci] = 1;
+        }
+        return obj;
+    },
     /**
      * 删除节点node上的指定属性名称的属性
      * @method  removeAttributes
