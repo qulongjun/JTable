@@ -33,6 +33,14 @@
     <button id="deleteRow">删除选中行</button>
     <button id="deleteCol">删除选中列</button>
 </div>
+<div style="margin-bottom: 10px;">
+    <button id="mergeRight">向右合并</button>
+    <button id="mergeDown">向下合并</button>
+    <button id="mergeCells">完全合并</button>
+    <button id="splittoRows">按行拆分</button>
+    <button id="splittoCols">按列拆分</button>
+    <button id="splittoCells">完全拆分</button>
+</div>
 <div id="table">
 </div>
 <div id="table2"></div>
@@ -108,6 +116,24 @@
     });
     $('#deleteCol').on('click',function () {
         a.execCommand('deletecol');
+    });
+    $('#mergeRight').on('click',function () {
+        a.execCommand('mergeright');
+    });
+    $('#mergeDown').on('click',function () {
+        a.execCommand('mergedown');
+    });
+    $('#mergeCells').on('click',function () {
+        a.execCommand('mergecells');
+    });
+    $('#splittoRows').on('click',function () {
+        a.execCommand('splittorows');
+    });
+    $('#splittoCols').on('click',function () {
+        a.execCommand('splittocols');
+    });
+    $('#splittoCells').on('click',function () {
+        a.execCommand('splittocells');
     });
 </script>
 </body>

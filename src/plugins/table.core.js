@@ -842,7 +842,7 @@
                         var nextRowIndex = rowIndex + 1,
                             nextRow = this.table.rows[nextRowIndex],
                             insertCellIndex,
-                            preMerged = this.getPreviewMergedCellsNum(nextRowIndex, colIndex) - count;
+                            preMerged = this.(nextRowIndex, colIndex) - count;
                         if (preMerged < colIndex) {
                             insertCellIndex = colIndex - preMerged - 1;
                             //nextRow.insertCell(insertCellIndex);
@@ -1019,7 +1019,7 @@
             this.update();
             return results;
         },
-        getPreviewMergedCellsNum:function (rowIndex, colIndex) {
+        getPreviewMergedCellsNum:function (rowIndex, colIndgetPreviewMergedCellsNumex) {
             var indexRow = this.indexTable[rowIndex],
                 num = 0;
             for (var i = 0; i < colIndex;) {

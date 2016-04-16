@@ -1,13 +1,15 @@
 /**
  * Created by qulongjun on 16/4/13.
  */
-var JT = window.JT || {};
-var JTABLE_CONFIG = Window.JTABLE_CONFIG || {};
+var JT = window.JT || {}, JTABLE_CONFIG = Window.JTABLE_CONFIG || {};
 Window.JT = JT;
 JT.instants = {};
 JT.commands = {};
 JT.dom = {};
-
+/**
+ * 默认配置项,所有配置项均可以在初始化JTable时覆盖
+ * @type {{container: string, tdWidth: string, tdHeight: string, tdvalign: string, defaultRows: number, defaultCols: number, tableWidth: number, tableStyle: string, selectTableStyle: string}}
+ */
 window.JTABLE_CONFIG = {
     container: ""//必需
     , tdWidth: "50"
@@ -25,14 +27,59 @@ window.JTABLE_CONFIG = {
     'td p{margin:0;padding:0;}'
     , selectTableStyle: '.selectTdClass{background-color:#edf5fa !important}' +
     'table.noBorderTable td,table.noBorderTable th,table.noBorderTable caption{border:1px dashed #ddd !important}'
-
 };
-var uid = 0;
-var attrFix = {
+var uid = 0, attrFix = {
     tabindex: "tabIndex",
     readonly: "readOnly"
+}, startCell, endCell;
+var JEventBase = JT.JEventBase = {}, dragButtonTimer,
+    startTd = null, //鼠标按下时的锚点td
+    currentTd = null, //当前鼠标经过时的td
+    onDrag = "", //指示当前拖动状态，其值可为"","h","v" ,分别表示未拖动状态，横向拖动状态，纵向拖动状态，用于鼠标移动过程中的判断
+    onBorder = false, //检测鼠标按下时是否处在单元格边缘位置
+    dragButton = null,
+    dragOver = false,
+    dragLine = null, //模拟的拖动线
+    dragTd = null,    //发生拖动的目标td
+    tabTimer = null,
+//拖动计时器
+    tableDragTimer = null,
+//双击计时器
+    tableResizeTimer = null,
+//单元格最小宽度
+    cellMinWidth = 5,
+    isInResizeBuffer = false,
+//鼠标偏移距离
+    offsetOfTableCell = 10,
+//记录在有限时间内的点击状态， 共有3个取值， 0, 1, 2。 0代表未初始化， 1代表单击了1次，2代表2次
+    singleClickState = 0,
+    userActionStatus = null,
+//双击允许的时间范围
+    dblclickTime = 360;
+var $isNotEmpty = {
+    table: 1,
+    ul: 1,
+    ol: 1,
+    dl: 1,
+    iframe: 1,
+    area: 1,
+    base: 1,
+    col: 1,
+    hr: 1,
+    img: 1,
+    embed: 1,
+    input: 1,
+    link: 1,
+    meta: 1,
+    param: 1,
+    h1: 1,
+    h2: 1,
+    h3: 1,
+    h4: 1,
+    h5: 1,
+    h6: 1
 };
-var JEventBase = JT.JEventBase = {};
+
 JEventBase.prototype = {
     /**
      * 注册事件监听器
@@ -42,10 +89,10 @@ JEventBase.prototype = {
      * @waining 事件被触发时，监听的函数假如返回的值恒等于true，回调函数的队列中后面的函数将不执行
      * @example
      * ```javascript
-     * editor.addListener('selectionchange',function(){
+     * table.addListener('selectionchange',function(){
      *      console.log("选区已经变化！");
      * })
-     * editor.addListener('beforegetcontent aftergetcontent',function(type){
+     * table.addListener('beforegetcontent aftergetcontent',function(type){
      *         if(type == 'beforegetcontent'){
      *             //do something
      *         }else{
@@ -62,7 +109,6 @@ JEventBase.prototype = {
             getListener(this, ti, true).push(listener);
         }
     },
-
     on: function (types, listener) {
         return this.addListener(types, listener);
     },
@@ -80,7 +126,7 @@ JEventBase.prototype = {
      * @example
      * ```javascript
      * //changeCallback为方法体
-     * editor.removeListener("selectionchange",changeCallback);
+     * table.removeListener("selectionchange",changeCallback);
      * ```
      */
     removeListener: function (types, listener) {
@@ -98,7 +144,7 @@ JEventBase.prototype = {
      * @return { * } 返回触发事件的队列中，最后执行的回调函数的返回值
      * @example
      * ```javascript
-     * editor.fireEvent("selectionchange");
+     * table.fireEvent("selectionchange");
      * ```
      */
 
@@ -119,7 +165,7 @@ JEventBase.prototype = {
      *
      * //触发selectionchange事件， 会执行上面的事件监听器
      * //output: Hello World
-     * editor.fireEvent("selectionchange", "Hello", "World");
+     * table.fireEvent("selectionchange", "Hello", "World");
      * ```
      */
     fireEvent: function () {
@@ -151,8 +197,8 @@ JEventBase.prototype = {
 /**
  * 获得对象所拥有监听类型的所有监听器
  * @unfile
- * @module UE
- * @since 1.2.6.1
+ * @module JEvent
+ * @since 1.0.0.0
  * @method getListener
  * @public
  * @param { Object } obj  查询监听器的对象
@@ -166,8 +212,15 @@ function getListener(obj, type, force) {
     return ( ( allListeners = ( obj.__allListeners || force && ( obj.__allListeners = {} ) ) )
     && ( allListeners[type] || force && ( allListeners[type] = [] ) ) );
 }
-var startCell, endCell;
+/**
+ * 在这里绑定JTable的大部分事件
+ * 在未来版本中会用来开发事件系统
+ * @type {{init: Window.JT.JEvent.init, readyLoad: Window.JT.JEvent.readyLoad}}
+ */
 var JEvent = JT.JEvent = {
+    /**
+     * 主事件,会随着JTable实例化的同时调用
+     */
     init: function () {
         var me = this;
         me.addListener('readyLoad', JEvent.readyLoad);
@@ -178,21 +231,28 @@ var JEvent = JT.JEvent = {
         });
         me.addListener('mouseup', MouseMoveSelect);
     },
+    /**
+     * Table加载完成事件,创建编辑器就绪之后触发该事件
+     */
     readyLoad: function () {
         var me = this;
-        $(me.container).on('mousedown', function (evt) {
+        me.container.onmousedown = function (evt) {
             me.fireEvent('mousedown', evt);
             $(me.container).on('mousemove', function (evt) {
                 me.fireEvent('mousemove', evt);
             });
-        });
-        $(me.container).on('mouseup', function (evt) {
+        };
+        me.container.onmouseup = function (evt) {
             me.fireEvent('mouseup', evt);
-
-        });
+        };
     }
 };
-
+/**
+ * 光标拖拽选择单元格方法
+ * @param cmd 当前调用该方法的事件名
+ * @param evt 当前触发事件的Object
+ * @constructor
+ */
 function MouseMoveSelect(cmd, evt) {
     var me = this;
     endCell = evt && me.getParentTdOrTh(evt.target || evt.srcElement);
@@ -207,6 +267,10 @@ function MouseMoveSelect(cmd, evt) {
     }
 }
 
+/**
+ * 初始化入口,定义Table常用API,绑定事件
+ * @type {Window.JT.JTable}
+ */
 var JTable = JT.JTable = function (options) {
     var me = this;
     me.uid = uid++;
@@ -214,11 +278,14 @@ var JTable = JT.JTable = function (options) {
     me.container = document.getElementById(options.container);
     me.document = document;
     me.outputRules = [];
-    //me.window = JUtils.getWindow(me.container);
     JCommand.load(me);
     JT.instants['tableInstant' + me.uid] = me;
     JEvent.init.call(me);
 };
+/**
+ * JTable的扩展插件
+ * @type {{execCommand: JTable.execCommand, _callCmdFn: JTable._callCmdFn, addOutputRule: JTable.addOutputRule, setOpt: JTable.setOpt, getOpt: JTable.getOpt, ready: JTable.ready}}
+ */
 JTable.prototype = {
     /**
      * 执行编辑命令cmdName，完成表格编辑效果
@@ -228,7 +295,7 @@ JTable.prototype = {
      * @return { * } 返回命令函数运行的返回值
      * @example
      * ```javascript
-     * editor.execCommand(cmdName);
+     * table.execCommand(cmdName);
      * ```
      */
     execCommand: function (cmdName) {
@@ -268,7 +335,7 @@ JTable.prototype = {
      * @param { Function } rule 要添加的过滤规则
      * @example
      * ```javascript
-     * editor.addOutputRule(function(root){
+     * table.addOutputRule(function(root){
          *   $.each(root.getNodesByTagName('p'),function(i,node){
          *       node.tagName="div";
          *   });
@@ -281,13 +348,13 @@ JTable.prototype = {
     /**
      * 该方法是提供给插件里面使用，设置配置项默认值
      * @method setOpt
-     * @warning 三处设置配置项的优先级: 实例化时传入参数 > setOpt()设置 > config文件里设置
+     * @warning 三处设置配置项的优先级: 实例化时传入参数 > setOpt()设置 > 默认设置
      * @warning 该方法仅供编辑器插件内部和编辑器初始化时调用，其他地方不能调用。
      * @param { String } key 编辑器的可接受的选项名称
      * @param { * } val  该选项可接受的值
      * @example
      * ```javascript
-     * editor.setOpt( 'initContent', '欢迎使用编辑器' );
+     * table.setOpt( 'initContent', '欢迎使用编辑器' );
      * ```
      */
 
@@ -299,7 +366,7 @@ JTable.prototype = {
      * @param { Object } options 将要设置的选项的键值对对象
      * @example
      * ```javascript
-     * editor.setOpt( {
+     * table.setOpt( {
          *     'initContent': '欢迎使用编辑器'
          * } );
      * ```
@@ -512,8 +579,9 @@ JT.commands["cellalign"] = {
         var doc = me.document || document;
         var table = doc.getElementById('tableInstant' + me.uid);
         if (table && table.nodeType == 1) {
-            var selectedTds = this.getSelectedArr(this);
-            if (selectedTds.length) {
+            //var selectedTds = this.getSelectedArr(this);
+            var selectedTds = this.selectedTds;
+            if (selectedTds && selectedTds.length) {
                 for (var i = 0, ci; ci = selectedTds[i++];) {
                     ci.setAttribute('align', align);
                 }
@@ -530,8 +598,8 @@ JT.commands["cellvalign"] = {
         var doc = me.document || document;
         var table = doc.getElementById('tableInstant' + me.uid);
         if (table && table.nodeType == 1) {
-            var selectedTds = this.getSelectedArr(this);
-            if (selectedTds.length) {
+            var selectedTds = this.selectedTds;
+            if (selectedTds && selectedTds.length) {
                 for (var i = 0, ci; ci = selectedTds[i++];) {
                     ci.setAttribute('vAlign', align);
                 }
@@ -562,7 +630,7 @@ JT.commands["insertrow"] = {
         var me = this, tableItems = this.getTableItemsByRange(this),
             cell = tableItems.cell;
         if (!cell.length) {
-            var rowIndex = me.document.findParentByTagName(cell, 'TR').rowIndex;
+            var rowIndex = JUtils.findParentByTagName(cell, 'TR').rowIndex;
             this.insertRow(rowIndex, cell);
         } else {
             var range = this.range;
@@ -577,8 +645,9 @@ JT.commands["insertrownext"] = {
 
     },
     execCommand: function () {
-        var me = this, tableItems = this.getTableItemsByRange(this),
-            cell = tableItems.cell, rowIndexs = [0], rowSpan = 0;
+        var me = this,
+        //tableItems = this.getTableItemsByRange(this),
+            cell = this.selectedTds, rowIndexs = [0], rowSpan = 0;
 
         for (var i = 0; i < cell.length; i++) {
             var rowIndex = JUtils.findParentByTagName(cell[i], 'TR').rowIndex;
@@ -586,9 +655,8 @@ JT.commands["insertrownext"] = {
         }
         rowIndexs.sort();
         rowSpan = rowIndexs[rowIndexs.length - 1] - rowIndexs[0];
-        console.log(rowSpan);
         if (!cell.length) {
-            var rowIndex = me.document.findParentByTagName(cell, 'TR').rowIndex;
+            var rowIndex = JUtils.findParentByTagName(cell, 'TR').rowIndex;
             this.insertRow(rowIndex + rowSpan, cell);
         } else {
             var range = this.range;
@@ -603,8 +671,10 @@ JT.commands["insertcol"] = {
 
     },
     execCommand: function () {
-        var me = this, tableItems = this.getTableItemsByRange(this),
-            cell = tableItems.cell;
+        var me = this,
+            //tableItems = this.getTableItemsByRange(this),
+            //cell = tableItems.cell;
+            cell=this.selectedTds;
         if (!cell.length) {
             //var rowIndex=me.document.findParentByTagName(cell,'TR').rowIndex;
             this.insertCol(cell.colIndex, cell);
@@ -621,8 +691,10 @@ JT.commands["insertcolnext"] = {
 
     },
     execCommand: function () {
-        var me = this, tableItems = this.getTableItemsByRange(this),
-            cell = tableItems.cell;
+        var me = this,
+            //tableItems = this.getTableItemsByRange(this),
+            //cell = tableItems.cell;
+            cell=this.selectedTds;
         if (!cell.length) {
             var colIndex = me.document.findParentByTagName(cell, 'TR').colIndex;
             this.insertCol(colIndex, cell);
@@ -639,13 +711,15 @@ JT.commands["deleterow"] = {
 
     },
     execCommand: function (cmd, opt) {
-        var me = this,tableItems = this.getTableItemsByRange(this),
-            cell = tableItems.cell;
+        var me = this,
+            //tableItems = this.getTableItemsByRange(this),
+            //cell = tableItems.cell;
+            cell=this.selectedTds;
         if (!cell.length) {
             var row = me.document.findParentByTagName(cell, 'TR').rowIndex;
             this.deleteRow(row);
-        }else{
-            var range=this.range;
+        } else {
+            var range = this.range;
             for (var i = 0, len = range.endRowIndex - range.beginRowIndex + 1; i < len; i++) {
                 this.deleteRow(range.beginRowIndex);
             }
@@ -657,25 +731,173 @@ JT.commands["deletecol"] = {
 
     },
     execCommand: function (cmd, opt) {
-        var me = this,tableItems = this.getTableItemsByRange(this),
-            cell = tableItems.cell;
+        var me = this,
+            //tableItems = this.getTableItemsByRange(this),
+            //cell = tableItems.cell;
+            cell=this.selectedTds;
         if (!cell.length) {
             this.deleteRow(cell.colIndex);
-        }else{
-            var range=this.range;
+        } else {
+            var range = this.range;
             for (var i = 0, len = range.endColIndex - range.beginColIndex + 1; i < len; i++) {
                 this.deleteCol(range.beginColIndex);
             }
         }
     }
 };
+JT.commands["mergeright"] = {
+    queryCommandState: function (cmd) {
+        var tableItems = getTableItemsByRange(this),
+            table = tableItems.table,
+            cell = tableItems.cell;
+
+        if (!table || !cell) return -1;
+        var ut = getUETable(table);
+        if (ut.selectedTds.length) return -1;
+
+        var cellInfo = ut.getCellInfo(cell),
+            rightColIndex = cellInfo.colIndex + cellInfo.colSpan;
+        if (rightColIndex >= ut.colsNum) return -1; // 如果处于最右边则不能向右合并
+
+        var rightCellInfo = ut.indexTable[cellInfo.rowIndex][rightColIndex],
+            rightCell = table.rows[rightCellInfo.rowIndex].cells[rightCellInfo.cellIndex];
+        if (!rightCell || cell.tagName != rightCell.tagName) return -1; // TH和TD不能相互合并
+
+        // 当且仅当两个Cell的开始列号和结束列号一致时能进行合并
+        return (rightCellInfo.rowIndex == cellInfo.rowIndex && rightCellInfo.rowSpan == cellInfo.rowSpan) ? 0 : -1;
+    },
+    execCommand: function (cmd) {
+        var me = this, cell = this.selectedTds;
+        if (cell && cell.length == 1) {
+            me.mergeRight(cell[0]);
+        }
+
+    }
+};
+JT.commands["mergedown"] = {
+    queryCommandState: function (cmd) {
+        var tableItems = getTableItemsByRange(this),
+            table = tableItems.table,
+            cell = tableItems.cell;
+
+        if (!table || !cell) return -1;
+        var ut = getUETable(table);
+        if (ut.selectedTds.length)return -1;
+
+        var cellInfo = ut.getCellInfo(cell),
+            downRowIndex = cellInfo.rowIndex + cellInfo.rowSpan;
+        if (downRowIndex >= ut.rowsNum) return -1; // 如果处于最下边则不能向下合并
+
+        var downCellInfo = ut.indexTable[downRowIndex][cellInfo.colIndex],
+            downCell = table.rows[downCellInfo.rowIndex].cells[downCellInfo.cellIndex];
+        if (!downCell || cell.tagName != downCell.tagName) return -1; // TH和TD不能相互合并
+
+        // 当且仅当两个Cell的开始列号和结束列号一致时能进行合并
+        return (downCellInfo.colIndex == cellInfo.colIndex && downCellInfo.colSpan == cellInfo.colSpan) ? 0 : -1;
+    },
+    execCommand: function () {
+        var me = this, cell = this.selectedTds;
+        if (cell && cell.length == 1) {
+            me.mergeDown(cell[0]);
+        }
+    }
+};
+JT.commands["mergecells"] = {
+    queryCommandState: function () {
+        return this.getJTableBySelected(this) ? 0 : -1;
+    },
+    execCommand: function () {
+        var ut = this.selectedTds;
+        if (ut && ut.length) {
+            this.mergeRange();
+        }
+    }
+};
+JT.commands["splittocells"] = {
+    queryCommandState: function () {
+        var tableItems = getTableItemsByRange(this),
+            cell = tableItems.cell;
+        if (!cell) return -1;
+        var ut = getUETable(tableItems.table);
+        if (ut.selectedTds.length > 0) return -1;
+        return cell && (cell.colSpan > 1 || cell.rowSpan > 1) ? 0 : -1;
+    },
+    execCommand: function () {
+        var cell = this.selectedTds;
+        if (cell && cell.length == 1) {
+            this.splitToCells(cell[0]);
+        }
+    }
+};
+JT.commands["splittorows"] = {
+    queryCommandState: function () {
+        var tableItems = getTableItemsByRange(this),
+            cell = tableItems.cell;
+        if (!cell) return -1;
+        var ut = getUETable(tableItems.table);
+        if (ut.selectedTds.length > 0) return -1;
+        return cell && cell.rowSpan > 1 ? 0 : -1;
+    },
+    execCommand: function () {
+        var cell = this.selectedTds;
+        if (cell && cell.length == 1) {
+            this.splitToRows(cell[0]);
+        }
+    }
+};
+JT.commands["splittocols"] = {
+    queryCommandState: function () {
+        var tableItems = getTableItemsByRange(this),
+            cell = tableItems.cell;
+        if (!cell) return -1;
+        var ut = getUETable(tableItems.table);
+        if (ut.selectedTds.length > 0) return -1;
+        return cell && cell.colSpan > 1 ? 0 : -1;
+    },
+    execCommand: function () {
+        var cell = this.selectedTds;
+        if (cell && cell.length == 1) {
+            this.splitToCols(cell[0]);
+        }
+    }
+};
+JT.commands["sorttable"] = {
+    queryCommandState: function () {
+        var tableItems = getTableItemsByRange(this),
+            cell = tableItems.cell;
+        if (!cell) return -1;
+        var ut = getUETable(tableItems.table);
+        if (ut.selectedTds.length > 0) return -1;
+        return cell && cell.colSpan > 1 ? 0 : -1;
+    },
+    execCommand: function (cmd, fn) {
+        var me = this,
+            range = me.selection.getRange(),
+            bk = range.createBookmark(true),
+            tableItems = getTableItemsByRange(me),
+            cell = tableItems.cell,
+            ut = getUETable(tableItems.table),
+            cellInfo = ut.getCellInfo(cell);
+        ut.sortTable(cellInfo.cellIndex, fn);
+        range.moveToBookmark(bk);
+        try {
+            range.select();
+        } catch (e) {
+        }
+    }
+};
+
+
+/**
+ * 表格对象,保存当前表格属性
+ * @type {JTable.TableInfo}
+ */
 var TableInfo = JTable.TableInfo = function (table) {
     this.table = table;
     this.indexTable = [];
     this.selectedTds = [];
     this.cellsRange = {};
     this.update(table);
-    //JAction.prototype.update(table);
 };
 /**
  * 根据当前点击的td或者table获取索引对象
@@ -688,62 +910,198 @@ function getJTable(tdOrTable) {
         tdOrTable.ueTable = new TableInfo(tdOrTable);
     }
     return tdOrTable.ueTable;
-};
-function resetTdWidth(table, editor) {
-    var tds = JUtils.getElementsByTagName(table, 'td th');
-    JUtils.each(tds, function (td) {
-        td.removeAttribute("width");
-    });
-    table.setAttribute('width', getTableWidth(editor, true, JCommand.getDefaultValue(editor, table)));
-    var tdsWidths = [];
-    setTimeout(function () {
-        JUtils.each(tds, function (td) {
-            (td.colSpan == 1) && tdsWidths.push(td.offsetWidth)
-        });
-        JUtils.each(tds, function (td, i) {
-            (td.colSpan == 1) && td.setAttribute("width", tdsWidths[i] + "");
-        })
-    }, 0);
 }
-function getTableWidth(editor, needIEHack, defaultValue) {
-    var body = editor.container;
-    var b = (needIEHack ? parseInt(JUtils.getComputedStyle(body, 'margin-left'), 10) * 2 : 0) - defaultValue.tableBorder * 2 - (editor.options.offsetWidth || 0);
-
-    return body.offsetWidth - (needIEHack ? parseInt(JUtils.getComputedStyle(body, 'margin-left'), 10) * 2 : 0) - defaultValue.tableBorder * 2 - (editor.options.offsetWidth || 0);
-    //return editor.options.tableWidth;
+JAction = JTable.JAction = function () {
 }
-
-var JAction = JTable.JAction = function () {
-
-
-};
-var dragButtonTimer,
-    startTd = null, //鼠标按下时的锚点td
-    currentTd = null, //当前鼠标经过时的td
-    onDrag = "", //指示当前拖动状态，其值可为"","h","v" ,分别表示未拖动状态，横向拖动状态，纵向拖动状态，用于鼠标移动过程中的判断
-    onBorder = false, //检测鼠标按下时是否处在单元格边缘位置
-    dragButton = null,
-    dragOver = false,
-    dragLine = null, //模拟的拖动线
-    dragTd = null,    //发生拖动的目标td
-    tabTimer = null,
-//拖动计时器
-    tableDragTimer = null,
-//双击计时器
-    tableResizeTimer = null,
-//单元格最小宽度
-    cellMinWidth = 5,
-    isInResizeBuffer = false,
-
-//鼠标偏移距离
-    offsetOfTableCell = 10,
-//记录在有限时间内的点击状态， 共有3个取值， 0, 1, 2。 0代表未初始化， 1代表单击了1次，2代表2次
-    singleClickState = 0,
-    userActionStatus = null,
-//双击允许的时间范围
-    dblclickTime = 360;
 JAction.prototype = {
-    deleteCol:function (colIndex) {
+    getPreviewMergedCellsNum: function (rowIndex, colIndex) {
+        var indexRow = this.indexTable[rowIndex],
+            num = 0;
+        for (var i = 0; i < colIndex;) {
+            var colSpan = indexRow[i].colSpan,
+                tmpRowIndex = indexRow[i].rowIndex;
+            num += (colSpan - (tmpRowIndex == rowIndex ? 1 : 0));
+            i += colSpan;
+        }
+        return num;
+    },
+    splitToRows: function (cell) {
+        var cellInfo = this.getCellInfo(cell),
+            rowIndex = cellInfo.rowIndex,
+            colIndex = cellInfo.colIndex,
+            results = [];
+        // 修改Cell的rowSpan
+        cell.rowSpan = 1;
+        results.push(cell);
+        // 补齐单元格
+        for (var i = rowIndex, endRow = rowIndex + cellInfo.rowSpan; i < endRow; i++) {
+            if (i == rowIndex)continue;
+            var tableRow = this.table.rows[i],
+                tmpCell = tableRow.insertCell(colIndex - this.getPreviewMergedCellsNum(i, colIndex));
+            tmpCell.colSpan = cellInfo.colSpan;
+            this.setCellContent(tmpCell);
+            tmpCell.setAttribute('vAlign', cell.getAttribute('vAlign'));
+            tmpCell.setAttribute('align', cell.getAttribute('align'));
+            if (cell.style.cssText) {
+                tmpCell.style.cssText = cell.style.cssText;
+            }
+            results.push(tmpCell);
+        }
+        this.update();
+        return results;
+    },
+    splitToCols: function (cell) {
+        var backWidth = (cell.offsetWidth / cell.colSpan - 22).toFixed(0),
+
+            cellInfo = this.getCellInfo(cell),
+            rowIndex = cellInfo.rowIndex,
+            colIndex = cellInfo.colIndex,
+            results = [];
+        // 修改Cell的rowSpan
+        cell.colSpan = 1;
+        cell.setAttribute("width", backWidth);
+        results.push(cell);
+        // 补齐单元格
+        for (var j = colIndex, endCol = colIndex + cellInfo.colSpan; j < endCol; j++) {
+            if (j == colIndex)continue;
+            var tableRow = this.table.rows[rowIndex],
+                tmpCell = tableRow.insertCell(this.indexTable[rowIndex][j].cellIndex + 1);
+            tmpCell.rowSpan = cellInfo.rowSpan;
+            this.setCellContent(tmpCell);
+            tmpCell.setAttribute('vAlign', cell.getAttribute('vAlign'));
+            tmpCell.setAttribute('align', cell.getAttribute('align'));
+            tmpCell.setAttribute('width', backWidth);
+            if (cell.style.cssText) {
+                tmpCell.style.cssText = cell.style.cssText;
+            }
+            //处理th的情况
+            if (cell.tagName == 'TH') {
+                var th = cell.ownerDocument.createElement('th');
+                th.appendChild(tmpCell.firstChild);
+                th.setAttribute('vAlign', cell.getAttribute('vAlign'));
+                th.rowSpan = tmpCell.rowSpan;
+                tableRow.insertBefore(th, tmpCell);
+                JUtils.remove(tmpCell);
+            }
+            results.push(tmpCell);
+        }
+        this.update();
+        return results;
+    },
+    splitToCells: function (cell) {
+        var me = this,
+            cells = this.splitToRows(cell);
+        JUtils.each(cells, function (cell) {
+            me.splitToCols(cell);
+        })
+    },
+    /**
+     * 删除单元格
+     */
+    deleteCell: function (cell, rowIndex) {
+        rowIndex = typeof rowIndex == 'number' ? rowIndex : cell.parentNode.rowIndex;
+        var row = this.table.rows[rowIndex];
+        row.deleteCell(cell.cellIndex);
+    },
+    /**
+     * 移动单元格中的内容
+     */
+    moveContent: function (cellTo, cellFrom) {
+        if (JUtils.isEmptyBlock(cellFrom)) return;
+        if (JUtils.isEmptyBlock(cellTo)) {
+            cellTo.innerHTML = cellFrom.innerHTML;
+            return;
+        }
+        var child = cellTo.lastChild;
+        if (child.nodeType == 3 || !dtd.$block[child.tagName]) {
+            cellTo.appendChild(cellTo.ownerDocument.createElement('br'))
+        }
+        while (child = cellFrom.firstChild) {
+            cellTo.appendChild(child);
+        }
+    },
+    /**
+     * 向右合并单元格
+     */
+    mergeRight: function (cell) {
+        var cellInfo = this.getCellInfo(cell),
+            rightColIndex = cellInfo.colIndex + cellInfo.colSpan,
+            rightCellInfo = this.indexTable[cellInfo.rowIndex][rightColIndex],
+            rightCell = this.getCell(rightCellInfo.rowIndex, rightCellInfo.cellIndex);
+        //合并
+        cell.colSpan = cellInfo.colSpan + rightCellInfo.colSpan;
+        //被合并的单元格不应存在宽度属性
+        cell.removeAttribute("width");
+        //移动内容
+        this.moveContent(cell, rightCell);
+        //删掉被合并的Cell
+        this.deleteCell(rightCell, rightCellInfo.rowIndex);
+        this.update();
+    },
+    /**
+     * 向下合并单元格
+     */
+    mergeDown: function (cell) {
+        var cellInfo = this.getCellInfo(cell),
+            downRowIndex = cellInfo.rowIndex + cellInfo.rowSpan,
+            downCellInfo = this.indexTable[downRowIndex][cellInfo.colIndex],
+            downCell = this.getCell(downCellInfo.rowIndex, downCellInfo.cellIndex);
+        cell.rowSpan = cellInfo.rowSpan + downCellInfo.rowSpan;
+        cell.removeAttribute("height");
+        this.moveContent(cell, downCell);
+        this.deleteCell(downCell, downCellInfo.rowIndex);
+        this.update();
+    },
+    /**
+     * 合并整个range中的内容
+     */
+    mergeRange: function () {
+        //由于合并操作可以在任意时刻进行，所以无法通过鼠标位置等信息实时生成range，只能通过缓存实例中的cellsRange对象来访问
+        var range = this.cellsRange,
+            leftTopCell = this.getCell(range.beginRowIndex, this.indexTable[range.beginRowIndex][range.beginColIndex].cellIndex);
+
+        if (leftTopCell.tagName == "TH" && range.endRowIndex !== range.beginRowIndex) {
+            var index = this.indexTable,
+                info = this.getCellInfo(leftTopCell);
+            leftTopCell = this.getCell(1, index[1][info.colIndex].cellIndex);
+            range = this.getCellsRange(leftTopCell, this.getCell(index[this.rowsNum - 1][info.colIndex].rowIndex, index[this.rowsNum - 1][info.colIndex].cellIndex));
+        }
+
+        // 删除剩余的Cells
+        var cells = this.getCells(range);
+        for (var i = 0, ci; ci = cells[i++];) {
+            if (ci !== leftTopCell) {
+                this.moveContent(leftTopCell, ci);
+                this.deleteCell(ci);
+            }
+        }
+        // 修改左上角Cell的rowSpan和colSpan，并调整宽度属性设置
+        leftTopCell.rowSpan = range.endRowIndex - range.beginRowIndex + 1;
+        leftTopCell.rowSpan > 1 && leftTopCell.removeAttribute("height");
+        leftTopCell.colSpan = range.endColIndex - range.beginColIndex + 1;
+        leftTopCell.colSpan > 1 && leftTopCell.removeAttribute("width");
+        if (leftTopCell.rowSpan == this.rowsNum && leftTopCell.colSpan != 1) {
+            leftTopCell.colSpan = 1;
+        }
+
+        if (leftTopCell.colSpan == this.colsNum && leftTopCell.rowSpan != 1) {
+            var rowIndex = leftTopCell.parentNode.rowIndex;
+            //解决IE下的表格操作问题
+            if (this.table.deleteRow) {
+                for (var i = rowIndex + 1, curIndex = rowIndex + 1, len = leftTopCell.rowSpan; i < len; i++) {
+                    this.table.deleteRow(curIndex);
+                }
+            } else {
+                for (var i = 0, len = leftTopCell.rowSpan - 1; i < len; i++) {
+                    var row = this.table.rows[rowIndex + 1];
+                    row.parentNode.removeChild(row);
+                }
+            }
+            leftTopCell.rowSpan = 1;
+        }
+        this.update();
+    },
+    deleteCol: function (colIndex) {
         var indexTable = this.indexTable,
             tableRows = this.table.rows,
             backTableWidth = this.table.getAttribute("width"),
@@ -774,7 +1132,7 @@ JAction.prototype = {
      * 删除一行单元格
      * @param rowIndex
      */
-    deleteRow:function (rowIndex) {
+    deleteRow: function (rowIndex) {
         var row = this.table.rows[rowIndex],
             infoRow = this.indexTable[rowIndex],
             colsNum = this.colsNum,
@@ -911,10 +1269,11 @@ JAction.prototype = {
         }
     },
     getTableItemsByRange: function (editor) {
-        var cell = editor && editor.selectedTds,
+        //var cell = editor && editor.selectedTds,
+        var cell = editor && editor.selectedTds[0],
             tr = cell && cell.parentNode,
             caption = editor && editor.table.getElementsByTagName('caption', true),
-            table = caption ? caption.parentNode : tr && tr.parentNode.parentNode;
+            table = tr && tr.parentNode.parentNode;
         return {
             cell: cell,
             tr: tr,
@@ -1599,9 +1958,46 @@ JAction.prototype = {
         }
     },
 };
-
-
 var JUtils = JT.JUtils = {
+
+    /**
+     * 判断给定的元素是否是一个空元素
+     * @method isEmptyBlock
+     * @param { Element } node 需要判断的元素
+     * @return { Boolean } 是否是空元素
+     * @example
+     * ```html
+     * <div id="test"></div>
+     *
+     * <script>
+     *     //output: true
+     *     console.log( JUtils.isEmptyBlock( document.getElementById("test") ) );
+     * </script>
+     * ```
+     */
+
+    /**
+     * 根据指定的判断规则判断给定的元素是否是一个空元素
+     * @method isEmptyBlock
+     * @param { Element } node 需要判断的元素
+     * @param { RegExp } reg 对内容执行判断的正则表达式对象
+     * @return { Boolean } 是否是空元素
+     */
+    isEmptyBlock: function (node, reg) {
+        if (node.nodeType != 1)
+            return 0;
+        reg = reg || new RegExp('[ \xa0\t\r\n' + JUtils.fillChar + ']', 'g');
+
+        if (node[browser.ie ? 'innerText' : 'textContent'].replace(reg, '').length > 0) {
+            return 0;
+        }
+        for (var n in $isNotEmpty) {
+            if (node.getElementsByTagName(n).length) {
+                return 0;
+            }
+        }
+        return 1;
+    },
     /**
      * 检测node节点是否为body节点
      * @method isBody
@@ -1628,7 +2024,7 @@ var JUtils = JT.JUtils = {
      * @return { Node | Null } 如果找到符合过滤条件的节点， 就返回该节点， 否则返回NULL
      * @example
      * ```javascript
-     * var filterNode = UE.dom.JUtils.findParent( document.body.firstChild, function ( node ) {
+     * var filterNode = JUtils.findParent( document.body.firstChild, function ( node ) {
      *
      *     //由于查找的终点是body节点， 所以永远也不会匹配当前过滤器的条件， 即这里永远会返回false
      *     return node.tagName === "HTML";
@@ -1663,7 +2059,7 @@ var JUtils = JT.JUtils = {
      *      <script type="text/javascript">
      *
      *          //output: DIV, BODY
-     *          var filterNode = UE.dom.JUtils.findParent( document.getElementById( "test" ), function ( node ) {
+     *          var filterNode = JUtils.findParent( document.getElementById( "test" ), function ( node ) {
      *
      *              console.log( node.tagName );
      *              return false;
@@ -1695,7 +2091,7 @@ var JUtils = JT.JUtils = {
      *
      * @example
      * ```javascript
-     * var location = UE.dom.JUtils.getXY( document.getElementById("test") );
+     * var location = JUtils.getXY( document.getElementById("test") );
      * //output: test的坐标为: 12, 24
      * console.log( 'test的坐标为： ', location.x, ',', location.y );
      * ```
@@ -1759,7 +2155,7 @@ var JUtils = JT.JUtils = {
      *
      * <script>
      *
-     *     UE.dom.JUtils.removeAttributes( document.getElementById( "test" ), "id name" );
+     *     JUtils.removeAttributes( document.getElementById( "test" ), "id name" );
      *
      *     //output: <span style="font-size:14px;">xxxxx</span>
      *     console.log( document.getElementById("wrap").innerHTML );
@@ -1781,7 +2177,7 @@ var JUtils = JT.JUtils = {
      *
      * <script>
      *
-     *     UE.dom.JUtils.removeAttributes( document.getElementById( "test" ), ["id", "name"] );
+     *     JUtils.removeAttributes( document.getElementById( "test" ), ["id", "name"] );
      *
      *     //output: <span style="font-size:14px;">xxxxx</span>
      *     console.log( document.getElementById("wrap").innerHTML );
@@ -1817,7 +2213,7 @@ var JUtils = JT.JUtils = {
      * <script>
      *
      *     var testNode = document.getElementById( "test" );
-     *     UE.dom.JUtils.removeClasses( testNode, "test1 test2" );
+     *     JUtils.removeClasses( testNode, "test1 test2" );
      *
      *     //output: test3
      *     console.log( testNode.className );
@@ -1838,7 +2234,7 @@ var JUtils = JT.JUtils = {
      * <script>
      *
      *     var testNode = document.getElementById( "test" );
-     *     UE.dom.JUtils.removeClasses( testNode, ["test1", "test2"] );
+     *     JUtils.removeClasses( testNode, ["test1", "test2"] );
      *
      *     //output: test3
      *     console.log( testNode.className );
@@ -1872,7 +2268,7 @@ var JUtils = JT.JUtils = {
      * <script>
      *     var testNode = document.getElementById("test");
      *
-     *     UE.dom.JUtils.addClass( testNode, ["cls2", "cls3", "cls4"] );
+     *     JUtils.addClass( testNode, ["cls2", "cls3", "cls4"] );
      *
      *     //output: cl1 cls2 cls3 cls4
      *     console.log( testNode.className );
@@ -1904,10 +2300,10 @@ var JUtils = JT.JUtils = {
      *     var test1 = document.getElementById("test1");
      *
      *     //output: false
-     *     console.log( UE.dom.JUtils.hasClass( test1, "cls2 cls1 cls3" ) );
+     *     console.log( JUtils.hasClass( test1, "cls2 cls1 cls3" ) );
      *
      *     //output: true
-     *     console.log( UE.dom.JUtils.hasClass( test1, "cls2 cls1" ) );
+     *     console.log( JUtils.hasClass( test1, "cls2 cls1" ) );
      * </script>
      * ```
      */
@@ -1926,10 +2322,10 @@ var JUtils = JT.JUtils = {
      *     var test1 = document.getElementById("test1");
      *
      *     //output: false
-     *     console.log( UE.dom.JUtils.hasClass( test1, [ "cls2", "cls1", "cls3" ] ) );
+     *     console.log( JUtils.hasClass( test1, [ "cls2", "cls1", "cls3" ] ) );
      *
      *     //output: true
-     *     console.log( UE.dom.JUtils.hasClass( test1, [ "cls2", "cls1" ]) );
+     *     console.log( JUtils.hasClass( test1, [ "cls2", "cls1" ]) );
      * </script>
      * ```
      */
@@ -1982,7 +2378,7 @@ var JUtils = JT.JUtils = {
      *
      * <script>
      *
-     *     var testNode = UE.dom.JUtils.setAttributes( document.getElementById( "test" ), {
+     *     var testNode = JUtils.setAttributes( document.getElementById( "test" ), {
      *         id: 'demo'
      *     } );
      *
@@ -2061,7 +2457,7 @@ var JUtils = JT.JUtils = {
      * @param { Function } handler 事件处理器
      * @example
      * ```javascript
-     * UE.dom.JUtils.on(document.body,"click",function(e){
+     * JUtils.on(document.body,"click",function(e){
      *     //e为事件对象，this为被点击元素对戏那个
      * });
      * ```
@@ -2075,7 +2471,7 @@ var JUtils = JT.JUtils = {
      * @param { Function } handler 事件处理器
      * @example
      * ```javascript
-     * UE.dom.JUtils.on(document.body,["click","mousedown"],function(evt){
+     * JUtils.on(document.body,["click","mousedown"],function(evt){
      *     //evt为事件对象，this为被点击元素对象
      * });
      * ```
@@ -2119,7 +2515,7 @@ var JUtils = JT.JUtils = {
      * @param { Function } handler 对应的事件处理器
      * @example
      * ```javascript
-     * UE.dom.JUtils.un(document.body,"click",function(evt){
+     * JUtils.un(document.body,"click",function(evt){
      *     //evt为事件对象，this为被点击元素对象
      * });
      * ```
@@ -2133,7 +2529,7 @@ var JUtils = JT.JUtils = {
      * @param { Function } handler 对应的事件处理器
      * @example
      * ```javascript
-     * UE.dom.JUtils.un(document.body, ["click","mousedown"],function(evt){
+     * JUtils.un(document.body, ["click","mousedown"],function(evt){
      *     //evt为事件对象，this为被点击元素对象
      * });
      * ```
@@ -2224,7 +2620,7 @@ var JUtils = JT.JUtils = {
      * @return { Node | NULL } 如果找到符合条件的节点， 则返回该节点， 否则返回NULL
      * @example
      * ```javascript
-     * var node = UE.dom.JUtils.findParentByTagName( document.getElementsByTagName("div")[0], [ "BODY" ] );
+     * var node = JUtils.findParentByTagName( document.getElementsByTagName("div")[0], [ "BODY" ] );
      * //output: BODY
      * console.log( node.tagName );
      * ```
@@ -2242,7 +2638,7 @@ var JUtils = JT.JUtils = {
      * @example
      * ```javascript
      * var queryTarget = document.getElementsByTagName("div")[0];
-     * var node = UE.dom.JUtils.findParentByTagName( queryTarget, [ "DIV" ], true );
+     * var node = JUtils.findParentByTagName( queryTarget, [ "DIV" ], true );
      * //output: true
      * console.log( queryTarget === node );
      * ```
@@ -2261,10 +2657,10 @@ var JUtils = JT.JUtils = {
      * @example
      * ```javascript
      *
-     * var protoObject = { sayHello: function () { console.log('Hello UEditor!'); } };
+     * var protoObject = { sayHello: function () { console.log('Hello JTable!'); } };
      *
-     * var newObject = UE.JUtils.makeInstance( protoObject );
-     * //output: Hello UEditor!
+     * var newObject = JUtils.makeInstance( protoObject );
+     * //output: Hello JTable!
      * newObject.sayHello();
      * ```
      */
@@ -2298,7 +2694,7 @@ var JUtils = JT.JUtils = {
      *     this.name = "小张";
      * }
      *
-     * UE.JUtils.inherits(SubClass,SuperClass);
+     * JUtils.inherits(SubClass,SuperClass);
      *
      * var sub = new SubClass();
      * //output: '小张早上好!
@@ -2326,7 +2722,7 @@ var JUtils = JT.JUtils = {
      * var target = { name: 'target', sex: 1 },
      *      source = { name: 'source', age: 17 };
      *
-     * UE.JUtils.extend( target, source, true );
+     * JUtils.extend( target, source, true );
      *
      * //output: { name: 'target', sex: 1, age: 17 }
      * console.log( target );
@@ -2383,7 +2779,7 @@ var JUtils = JT.JUtils = {
      * ```javascript
      * var arr = [ 4, 5, 7, 1, 3, 4, 6 ];
      *
-     * UE.JUtils.removeItem( arr, 4 );
+     * JUtils.removeItem( arr, 4 );
      * //output: [ 5, 7, 1, 3, 6 ]
      * console.log( arr );
      *
@@ -2408,7 +2804,7 @@ var JUtils = JT.JUtils = {
      *     <div id="child">你好</div>
      * </div>
      * <script>
-     *     UE.dom.JUtils.remove( document.body, false );
+     *     JUtils.remove( document.body, false );
      *     //output: false
      *     console.log( document.getElementById( "child" ) !== null );
      * </script>
@@ -2427,7 +2823,7 @@ var JUtils = JT.JUtils = {
      *     <div id="child">你好</div>
      * </div>
      * <script>
-     *     UE.dom.JUtils.remove( document.body, true );
+     *     JUtils.remove( document.body, true );
      *     //output: true
      *     console.log( document.getElementById( "child" ) !== null );
      * </script>
@@ -2464,7 +2860,7 @@ var JUtils = JT.JUtils = {
      *
      * <script>
      *     //output: 15px
-     *     console.log( UE.dom.JUtils.getComputedStyle( document.getElementById( "test" ), 'font-size' ) );
+     *     console.log( JUtils.getComputedStyle( document.getElementById( "test" ), 'font-size' ) );
      * </script>
      * ```
      */
@@ -2518,10 +2914,10 @@ var JUtils = JT.JUtils = {
      *      var testNode = document.getElementById( "test" );
      *
      *      //output: red
-     *      console.log( UE.dom.JUtils.getStyle( testNode, "color" ) );
+     *      console.log( JUtils.getStyle( testNode, "color" ) );
      *
      *      //output: ""
-     *      console.log( UE.dom.JUtils.getStyle( testNode, "background" ) );
+     *      console.log( JUtils.getStyle( testNode, "background" ) );
      *
      * </script>
      * ```
@@ -2538,7 +2934,7 @@ var JUtils = JT.JUtils = {
      * @example
      * ```javascript
      * //output: true
-     * console.log( UE.dom.JUtils.getWindow( document.body ) === window );
+     * console.log( JUtils.getWindow( document.body ) === window );
      * ```
      */
     getWindow: function (node) {
@@ -2556,7 +2952,7 @@ var JUtils = JT.JUtils = {
      * var str = 'border-top';
      *
      * //output: borderTop
-     * console.log( UE.JUtils.cssStyleToDomStyle( str ) );
+     * console.log( JUtils.cssStyleToDomStyle( str ) );
      *
      * ```
      */
@@ -2608,7 +3004,7 @@ var JUtils = JT.JUtils = {
      * console.log( str.length );
      *
      * //output: 7
-     * console.log( UE.JUtils.trim( " UEdtior " ).length );
+     * console.log( JUtils.trim( " UEdtior " ).length );
      *
      * //output: 9
      * console.log( str.length );
@@ -2622,11 +3018,11 @@ var JUtils = JT.JUtils = {
      * 动态添加css样式
      * @method cssRule
      * @param { String } 节点名称
-     * @grammar UE.JUtils.cssRule('添加的样式的节点名称',['样式'，'放到哪个document上'])
-     * @grammar UE.JUtils.cssRule('body','body{background:#ccc}') => null  //给body添加背景颜色
-     * @grammar UE.JUtils.cssRule('body') =>样式的字符串  //取得key值为body的样式的内容,如果没有找到key值先关的样式将返回空，例如刚才那个背景颜色，将返回 body{background:#ccc}
-     * @grammar UE.JUtils.cssRule('body',document) => 返回指定key的样式，并且指定是哪个document
-     * @grammar UE.JUtils.cssRule('body','') =>null //清空给定的key值的背景颜色
+     * @grammar JUtils.cssRule('添加的样式的节点名称',['样式'，'放到哪个document上'])
+     * @grammar JUtils.cssRule('body','body{background:#ccc}') => null  //给body添加背景颜色
+     * @grammar JUtils.cssRule('body') =>样式的字符串  //取得key值为body的样式的内容,如果没有找到key值先关的样式将返回空，例如刚才那个背景颜色，将返回 body{background:#ccc}
+     * @grammar JUtils.cssRule('body',document) => 返回指定key的样式，并且指定是哪个document
+     * @grammar JUtils.cssRule('body','') =>null //清空给定的key值的背景颜色
      */
     cssRule: function (key, style, doc) {
         var head, node;
@@ -2680,7 +3076,7 @@ var browser = JT.browser = function () {
              * @property {boolean} ie 检测当前浏览器是否为IE
              * @example
              * ```javascript
-             * if ( UE.browser.ie ) {
+             * if ( browser.ie ) {
          *     console.log( '当前浏览器是IE' );
          * }
              * ```
