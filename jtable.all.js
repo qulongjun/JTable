@@ -15,9 +15,9 @@ window.JTABLE_CONFIG = {
     , tdWidth: "50"
     , tdHeight: "50"
     , tdvalign: "center"
-    , defaultRows: 5
-    , defaultCols: 5
-    , tableWidth: 300
+    , defaultRows: 10
+    , defaultCols: 10
+    , tableWidth: 600
     , tableStyle: 'table{margin-bottom:10px;border-collapse:collapse;display:table;}' +
     'td,th{padding: 5px 10px;border: 1px solid #DDD;}' +
     'caption{border:1px dashed #DDD;border-bottom:0;padding:3px;text-align:center;}' +
@@ -979,7 +979,7 @@ JT.commands["splittocells"] = {
             table=tableInfo && tableInfo.table,
             selectTds=this.selectedTds;
         if(selectTds && selectTds ){
-            
+
         }
 
 
