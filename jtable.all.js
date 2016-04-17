@@ -330,6 +330,35 @@ JTable.prototype = {
         }
     },
     /**
+     * 根据传入的command命令，查选JTable当前的选区，返回命令的状态
+     * @method  queryCommandState
+     * @param { String } cmdName 需要查询的命令名称
+     * @remind 具体命令的使用请参考<a href="#COMMAND.LIST">命令列表</a>
+     * @return { Number } number 返回放前命令的状态，返回值三种情况：(-1|0|1)
+     * @example
+     * ```javascript
+     * editor.queryCommandState(cmdName)  => (-1|0|1)
+     * ```
+     * @see COMMAND.LIST
+     */
+    queryCommandState: function (cmdName) {
+        return this._callCmdFn('queryCommandState', arguments);
+    },
+
+    /**
+     * 根据传入的command命令，查选JTable当前的选区，根据命令返回相关的值
+     * @method queryCommandValue
+     * @param { String } cmdName 需要查询的命令名称
+     * @remind 具体命令的使用请参考<a href="#COMMAND.LIST">命令列表</a>
+     * @remind 只有部分插件有此方法
+     * @return { * } 返回每个命令特定的当前状态值
+     * @grammar editor.queryCommandValue(cmdName)  =>  {*}
+     * @see COMMAND.LIST
+     */
+    queryCommandValue: function (cmdName) {
+        return this._callCmdFn('queryCommandValue', arguments);
+    },
+    /**
      * 注册输出过滤规则
      * @method  addOutputRule
      * @param { Function } rule 要添加的过滤规则
@@ -451,7 +480,11 @@ var JCommand = JT.JCommand = {
 };
 JT.commands["inserttable"] = {
     queryCommandState: function () {
-
+        /**
+         * -1:当前容器内部存在表格,无法创建
+         * 0:当前容器内部存在表格,可以创建
+         */
+        return this.table ? -1 : 0;
     },
     execCommand: function (cmd, opt) {
         function createTable(opt, tdWidth) {
@@ -468,37 +501,51 @@ JT.commands["inserttable"] = {
             //禁止指定table-width
             return '<table contenteditable="true" id="' + 'tableInstant' + me.uid + '"><tbody>' + html.join('') + '</tbody></table>'
         }
-
-        opt = JUtils.extend({}, {
-            numCols: this.options.defaultCols,
-            numRows: this.options.defaultRows,
-            tdvalign: this.options.tdvalign,
-            tableWidth: this.options.tableWidth
-        });
-        var me = this;
-        var defaultValue = JCommand.getDefaultValue(me),
-            tableWidth = opt.tableWidth,//表格宽度
-            tdWidth = Math.floor(tableWidth / opt.numCols - defaultValue.tdPadding * 2 - defaultValue.tdBorder);
-        var div = me.document.createElement('div');
-        div.style.display = 'inline';
-        div.innerHTML = createTable(opt, tdWidth);
-        me.container.appendChild(div);
-        JUtils.cssRule('tableSt',
-            this.options.tableStyle + this.options.selectTableStyle, me.document);
-        JUtils.remove(div, true);
-        me.fireEvent('readyLoad');
+        if(!this.tableInfo) {
+            opt = JUtils.extend({}, {
+                numCols: this.options.defaultCols,
+                numRows: this.options.defaultRows,
+                tdvalign: this.options.tdvalign,
+                tableWidth: this.options.tableWidth
+            });
+            var me = this;
+            var defaultValue = JCommand.getDefaultValue(me),
+                tableWidth = opt.tableWidth,//表格宽度
+                tdWidth = Math.floor(tableWidth / opt.numCols - defaultValue.tdPadding * 2 - defaultValue.tdBorder);
+            var div = me.document.createElement('div');
+            var table = createTable(opt, tdWidth);
+            div.style.display = 'inline';
+            div.innerHTML = table;
+            me.container.appendChild(div);
+            me.tableInfo = new TableInfo(me.document.getElementById('tableInstant' + me.uid));
+            JUtils.cssRule('JTableStyle'+me.uid,
+                this.options.tableStyle + this.options.selectTableStyle, me.document);
+            JUtils.remove(div, true);
+            me.fireEvent('readyLoad');
+        }else{
+            console.log("当前容器已经存在表格,无法进行渲染");
+        }
     }
 };
 JT.commands["deletetable"] = {
+    /**
+     * -1:当前容器内不存在表格,无法删除
+     * 0:当前容器内部存在表格,可以删除
+     * @returns {number}t
+     */
     queryCommandState: function () {
-
+        return this.table ? 0 : -1;
     },
-    execCommand: function (cmd, opt) {
-        var me = this;
-        var doc = me.document || document;
-        var table = doc.getElementById('tableInstant' + me.uid);
+    execCommand: function () {
+        var table = this.tableInfo&&this.tableInfo.table;
         if (table && table.nodeType == 1) {
-            table.parentNode && table.parentNode.removeChild(table);
+            //table.parentNode && table.parentNode.removeChild(table);
+            this.container.removeChild(table);
+            this.tableInfo=null;
+            this.table=null;
+            this.document.head.removeChild(this.document.getElementById("JTableStyle"+this.uid));
+        }else{
+            console.log("当前容器不存在表格,无法删除");
         }
     }
 };
@@ -672,9 +719,9 @@ JT.commands["insertcol"] = {
     },
     execCommand: function () {
         var me = this,
-            //tableItems = this.getTableItemsByRange(this),
-            //cell = tableItems.cell;
-            cell=this.selectedTds;
+        //tableItems = this.getTableItemsByRange(this),
+        //cell = tableItems.cell;
+            cell = this.selectedTds;
         if (!cell.length) {
             //var rowIndex=me.document.findParentByTagName(cell,'TR').rowIndex;
             this.insertCol(cell.colIndex, cell);
@@ -692,9 +739,9 @@ JT.commands["insertcolnext"] = {
     },
     execCommand: function () {
         var me = this,
-            //tableItems = this.getTableItemsByRange(this),
-            //cell = tableItems.cell;
-            cell=this.selectedTds;
+        //tableItems = this.getTableItemsByRange(this),
+        //cell = tableItems.cell;
+            cell = this.selectedTds;
         if (!cell.length) {
             var colIndex = me.document.findParentByTagName(cell, 'TR').colIndex;
             this.insertCol(colIndex, cell);
@@ -712,9 +759,9 @@ JT.commands["deleterow"] = {
     },
     execCommand: function (cmd, opt) {
         var me = this,
-            //tableItems = this.getTableItemsByRange(this),
-            //cell = tableItems.cell;
-            cell=this.selectedTds;
+        //tableItems = this.getTableItemsByRange(this),
+        //cell = tableItems.cell;
+            cell = this.selectedTds;
         if (!cell.length) {
             var row = me.document.findParentByTagName(cell, 'TR').rowIndex;
             this.deleteRow(row);
@@ -732,9 +779,9 @@ JT.commands["deletecol"] = {
     },
     execCommand: function (cmd, opt) {
         var me = this,
-            //tableItems = this.getTableItemsByRange(this),
-            //cell = tableItems.cell;
-            cell=this.selectedTds;
+        //tableItems = this.getTableItemsByRange(this),
+        //cell = tableItems.cell;
+            cell = this.selectedTds;
         if (!cell.length) {
             this.deleteRow(cell.colIndex);
         } else {
