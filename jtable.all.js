@@ -478,6 +478,7 @@ var JCommand = JT.JCommand = {
         }
     }
 };
+
 JT.commands["inserttable"] = {
     queryCommandState: function () {
         /**
@@ -501,7 +502,8 @@ JT.commands["inserttable"] = {
             //禁止指定table-width
             return '<table contenteditable="true" id="' + 'tableInstant' + me.uid + '"><tbody>' + html.join('') + '</tbody></table>'
         }
-        if(!this.tableInfo) {
+
+        if (!this.tableInfo) {
             opt = JUtils.extend({}, {
                 numCols: this.options.defaultCols,
                 numRows: this.options.defaultRows,
@@ -518,11 +520,12 @@ JT.commands["inserttable"] = {
             div.innerHTML = table;
             me.container.appendChild(div);
             me.tableInfo = new TableInfo(me.document.getElementById('tableInstant' + me.uid));
-            JUtils.cssRule('JTableStyle'+me.uid,
+            me.table = table;
+            JUtils.cssRule('JTableStyle' + me.uid,
                 this.options.tableStyle + this.options.selectTableStyle, me.document);
             JUtils.remove(div, true);
             me.fireEvent('readyLoad');
-        }else{
+        } else {
             console.log("当前容器已经存在表格,无法进行渲染");
         }
     }
@@ -537,86 +540,161 @@ JT.commands["deletetable"] = {
         return this.table ? 0 : -1;
     },
     execCommand: function () {
-        var table = this.tableInfo&&this.tableInfo.table;
+        var table = this.tableInfo && this.tableInfo.table;
         if (table && table.nodeType == 1) {
             //table.parentNode && table.parentNode.removeChild(table);
             this.container.removeChild(table);
-            this.tableInfo=null;
-            this.table=null;
-            this.document.head.removeChild(this.document.getElementById("JTableStyle"+this.uid));
-        }else{
+            this.tableInfo = null;
+            this.table = null;
+            this.document.head.removeChild(this.document.getElementById("JTableStyle" + this.uid));
+        } else {
             console.log("当前容器不存在表格,无法删除");
         }
     }
 };
 JT.commands["insertcaption"] = {
+    /**
+     * 0:当前不存在caption,且可以插入
+     * -1:当前已经存在了caption,无法再次插入
+     * @returns {number}
+     */
     queryCommandState: function () {
-
+        var table = this.tableInfo;
+        if (table) {
+            return table.caption == null ? 0 : -1
+        }
+        return -1;
     },
-    execCommand: function (cmd, opt) {
+    execCommand: function () {
         var me = this,
             doc = me.document || document,
-            table = doc.getElementById('tableInstant' + me.uid);
-        if (table && table.nodeType == 1) {
-            var caption = this.document.createElement('caption');
+            table = this.tableInfo.table;
+        if (table && !table.caption && doc && table.nodeType == 1) {
+            var caption = doc.createElement('caption');
             caption.innerHTML = '<br/>';
             table.insertBefore(caption, table.firstChild);
+            me.tableInfo.caption = caption;
+        } else {
+            console.log('当前已存在表头,无法再次插入!');
         }
     }
 };
 JT.commands["deletecaption"] = {
+    /**
+     * 0:当前存在表头,可以删除
+     * 1:当前不存在表头,无法删除
+     * @returns {number}
+     */
     queryCommandState: function () {
-
+        var me = this,
+            tableInfo = this.tableInfo,
+            caption = tableInfo && tableInfo.caption;
+        return caption == null ? -1 : 0;
     },
-    execCommand: function (cmd, opt) {
-        var me = this;
-        var doc = me.document || document;
-        var table = doc.getElementById('tableInstant' + me.uid);
-        if (table && table.nodeType == 1) {
+    execCommand: function () {
+        var me = this,
+            doc = me.document || document,
+            table = me.tableInfo && me.tableInfo.table,
+            caption = me.tableInfo && me.tableInfo.caption;
+
+        if (caption != null && table && table.nodeType == 1) {
             JUtils.remove(table.getElementsByTagName('caption')[0]);
+            me.tableInfo.caption = null;
+        } else {
+            console.log('当前不存在表头,无法删除');
         }
     }
 };
 JT.commands["inserttitlerow"] = {
+    /**
+     * 0:表示当前第一行不是TH标签,可以设置
+     * -1:表示当前第一行是TH标签,不可以设置
+     * @returns {number}
+     */
     queryCommandState: function () {
-
+        var me = this,
+            tableInfo = this.tableInfo,
+            table = tableInfo && tableInfo.table;
+        if (table) {
+            var firstRow = table.rows[0];
+            return firstRow.cells[firstRow.cells.length - 1].tagName.toLowerCase() != 'th' ? 0 : -1
+        }
+        return -1;
     },
-    execCommand: function (cmd, opt) {
-        var me = this;
-        var doc = me.document || document;
-        var table = doc.getElementById('tableInstant' + me.uid);
-        if (table && table.nodeType == 1) {
+    execCommand: function () {
+        var me = this,
+            doc = me.document || document,
+            table = this.tableInfo && this.tableInfo.table,
+            result = this.queryCommandState('inserttitlerow') == 0;
+        if (result && table && table.nodeType == 1) {
             getJTable(table).insertRow(0, 'th');
+        } else {
+            console.log('当前已经存在标题行,无法插入');
         }
     }
 };
 JT.commands["inserttitlecol"] = {
     queryCommandState: function () {
-
-    },
-    execCommand: function (cmd, opt) {
-        var me = this;
-        var doc = me.document || document;
-        var table = doc.getElementById('tableInstant' + me.uid);
-        if (table && table.nodeType == 1) {
-            getJTable(table).insertCol(0, 'th');
+        var table = this.tableInfo && this.tableInfo.table;
+        if (table) {
+            var lastRow = table.rows[table.rows.length - 1];
+            return lastRow.getElementsByTagName('th').length ? -1 : 0;
         }
-        //resetTdWidth(table, this);
+        return -1;
+    },
+    execCommand: function () {
+        var me = this, doc = me.document || document, table = me.tableInfo && me.tableInfo.table,
+            result = this.queryCommandState('inserttitlecol') == 0;
+        if (result && table && table.nodeType == 1) {
+            getJTable(table).insertCol(0, 'th');
+        } else {
+            console.log('当前已经存在标题列,无法插入');
+        }
     }
 };
 JT.commands["deletetitlerow"] = {
     queryCommandState: function () {
-
+        var table = this.tableInfo && this.tableInfo.table;
+        if (table) {
+            var firstRow = table.rows[0];
+            return firstRow.cells[firstRow.cells.length - 1].tagName.toLowerCase() == 'th' ? 0 : -1
+        }
+        return -1;
     },
     execCommand: function (cmd, opt) {
-        var me = this;
-        var doc = me.document || document;
-        var table = doc.getElementById('tableInstant' + me.uid);
-        if (table && table.nodeType == 1) {
+        var me = this,
+            table = me.tableInfo && me.tableInfo.table,
+            result = this.queryCommandState('deletetitlerow') == 0;
+        if (result && table && table.nodeType == 1) {
             JUtils.remove(table.rows[0]);
+        } else {
+            console.log('当前不存在标题行,无法删除');
         }
     }
 };
+JT.commands["deletetitlecol"] = {
+    queryCommandState: function () {
+        var table = this.tableInfo && this.tableInfo.table;
+        if (table) {
+            var lastRow = table.rows[table.rows.length - 1];
+            return lastRow.getElementsByTagName('th').length ? 0 : -1;
+        }
+        return -1;
+    },
+    execCommand: function (cmd, opt) {
+        var me = this,
+            table = this.tableInfo && this.tableInfo.table,
+            result = this.queryCommandState('deletetitlecol') == 0;
+        if (result && table && table.nodeType == 1) {
+            for (var i = 0; i < table.rows.length; i++) {
+                JUtils.remove(table.rows[i].children[0])
+            }
+        }else{
+            console.log('当前不存在标题列,无法删除');
+        }
+    }
+};
+
 JT.commands["cellalign"] = {
     queryCommandState: function () {
 
@@ -650,21 +728,6 @@ JT.commands["cellvalign"] = {
                 for (var i = 0, ci; ci = selectedTds[i++];) {
                     ci.setAttribute('vAlign', align);
                 }
-            }
-        }
-    }
-};
-JT.commands["deletetitlecol"] = {
-    queryCommandState: function () {
-
-    },
-    execCommand: function (cmd, opt) {
-        var me = this;
-        var doc = me.document || document;
-        var table = doc.getElementById('tableInstant' + me.uid);
-        if (table && table.nodeType == 1) {
-            for (var i = 0; i < table.rows.length; i++) {
-                JUtils.remove(table.rows[i].children[0])
             }
         }
     }
@@ -944,6 +1007,7 @@ var TableInfo = JTable.TableInfo = function (table) {
     this.indexTable = [];
     this.selectedTds = [];
     this.cellsRange = {};
+    this.caption = null;
     this.update(table);
 };
 /**
