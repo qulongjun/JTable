@@ -884,24 +884,39 @@ JT.commands["deletecol"] = {
 };
 JT.commands["mergeright"] = {
     queryCommandState: function (cmd) {
-        var tableItems = getTableItemsByRange(this),
-            table = tableItems.table,
-            cell = tableItems.cell;
+        // var tableInfo=this.tableInfo,
+        //     table=tableInfo && tableInfo.table,
+        //     selectTds=this.selectedTds;
+        //
+        // if(!table || !selectTds ||selectTds.length != 1) return -1;
+        // var nowCell=selectTds[0];
+        //
+        // var Cells = JUtils.getElementsByTagName(table,'TD');
+        // if (nowCell.cellIndex == Cells.length-1) return -1;
+        // var rightCellInfo=this.indexTable[nowCell.rowIndex][nowCell.colIndex];
+        // if(nowCell.tagName != rightCellInfo.tagName) return -1;
+        //
+        // return 0;
 
-        if (!table || !cell) return -1;
-        var ut = getUETable(table);
-        if (ut.selectedTds.length) return -1;
 
-        var cellInfo = ut.getCellInfo(cell),
-            rightColIndex = cellInfo.colIndex + cellInfo.colSpan;
-        if (rightColIndex >= ut.colsNum) return -1; // 如果处于最右边则不能向右合并
-
-        var rightCellInfo = ut.indexTable[cellInfo.rowIndex][rightColIndex],
-            rightCell = table.rows[rightCellInfo.rowIndex].cells[rightCellInfo.cellIndex];
-        if (!rightCell || cell.tagName != rightCell.tagName) return -1; // TH和TD不能相互合并
-
-        // 当且仅当两个Cell的开始列号和结束列号一致时能进行合并
-        return (rightCellInfo.rowIndex == cellInfo.rowIndex && rightCellInfo.rowSpan == cellInfo.rowSpan) ? 0 : -1;
+        // var tableItems = getTableItemsByRange(this),
+        //     table = tableItems.table,
+        //     cell = tableItems.cell;
+        //
+        // if (!table || !cell) return -1;
+        // var ut = getUETable(table);
+        // if (ut.selectedTds.length) return -1;
+        //
+        // var cellInfo = ut.getCellInfo(cell),
+        //     rightColIndex = cellInfo.colIndex + cellInfo.colSpan;
+        // if (rightColIndex >= ut.colsNum) return -1; // 如果处于最右边则不能向右合并
+        //
+        // var rightCellInfo = ut.indexTable[cellInfo.rowIndex][rightColIndex],
+        //     rightCell = table.rows[rightCellInfo.rowIndex].cells[rightCellInfo.cellIndex];
+        // if (!rightCell || cell.tagName != rightCell.tagName) return -1; // TH和TD不能相互合并
+        //
+        // // 当且仅当两个Cell的开始列号和结束列号一致时能进行合并
+        // return (rightCellInfo.rowIndex == cellInfo.rowIndex && rightCellInfo.rowSpan == cellInfo.rowSpan) ? 0 : -1;
     },
     execCommand: function (cmd) {
         var me = this, cell = this.selectedTds;
@@ -913,24 +928,24 @@ JT.commands["mergeright"] = {
 };
 JT.commands["mergedown"] = {
     queryCommandState: function (cmd) {
-        var tableItems = getTableItemsByRange(this),
-            table = tableItems.table,
-            cell = tableItems.cell;
-
-        if (!table || !cell) return -1;
-        var ut = getUETable(table);
-        if (ut.selectedTds.length)return -1;
-
-        var cellInfo = ut.getCellInfo(cell),
-            downRowIndex = cellInfo.rowIndex + cellInfo.rowSpan;
-        if (downRowIndex >= ut.rowsNum) return -1; // 如果处于最下边则不能向下合并
-
-        var downCellInfo = ut.indexTable[downRowIndex][cellInfo.colIndex],
-            downCell = table.rows[downCellInfo.rowIndex].cells[downCellInfo.cellIndex];
-        if (!downCell || cell.tagName != downCell.tagName) return -1; // TH和TD不能相互合并
-
-        // 当且仅当两个Cell的开始列号和结束列号一致时能进行合并
-        return (downCellInfo.colIndex == cellInfo.colIndex && downCellInfo.colSpan == cellInfo.colSpan) ? 0 : -1;
+        // var tableItems = getTableItemsByRange(this),
+        //     table = tableItems.table,
+        //     cell = tableItems.cell;
+        //
+        // if (!table || !cell) return -1;
+        // var ut = getUETable(table);
+        // if (ut.selectedTds.length)return -1;
+        //
+        // var cellInfo = ut.getCellInfo(cell),
+        //     downRowIndex = cellInfo.rowIndex + cellInfo.rowSpan;
+        // if (downRowIndex >= ut.rowsNum) return -1; // 如果处于最下边则不能向下合并
+        //
+        // var downCellInfo = ut.indexTable[downRowIndex][cellInfo.colIndex],
+        //     downCell = table.rows[downCellInfo.rowIndex].cells[downCellInfo.cellIndex];
+        // if (!downCell || cell.tagName != downCell.tagName) return -1; // TH和TD不能相互合并
+        //
+        // // 当且仅当两个Cell的开始列号和结束列号一致时能进行合并
+        // return (downCellInfo.colIndex == cellInfo.colIndex && downCellInfo.colSpan == cellInfo.colSpan) ? 0 : -1;
     },
     execCommand: function () {
         var me = this, cell = this.selectedTds;
@@ -941,7 +956,7 @@ JT.commands["mergedown"] = {
 };
 JT.commands["mergecells"] = {
     queryCommandState: function () {
-        return this.getJTableBySelected(this) ? 0 : -1;
+        return this.selectedTds ? 0 : -1;
     },
     execCommand: function () {
         var ut = this.selectedTds;
@@ -952,12 +967,22 @@ JT.commands["mergecells"] = {
 };
 JT.commands["splittocells"] = {
     queryCommandState: function () {
-        var tableItems = getTableItemsByRange(this),
-            cell = tableItems.cell;
-        if (!cell) return -1;
-        var ut = getUETable(tableItems.table);
-        if (ut.selectedTds.length > 0) return -1;
-        return cell && (cell.colSpan > 1 || cell.rowSpan > 1) ? 0 : -1;
+        // var tableItems = getTableItemsByRange(this),
+        //     cell = tableItems.cell;
+        // if (!cell) return -1;
+        // var ut = getUETable(tableItems.table);
+        // if (ut.selectedTds.length > 0) return -1;
+        // return cell && (cell.colSpan > 1 || cell.rowSpan > 1) ? 0 : -1;
+
+        var me=this,
+            tableInfo=this.tableInfo,
+            table=tableInfo && tableInfo.table,
+            selectTds=this.selectedTds;
+        if(selectTds && selectTds ){
+            
+        }
+
+
     },
     execCommand: function () {
         var cell = this.selectedTds;
