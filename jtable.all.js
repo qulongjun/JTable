@@ -689,7 +689,7 @@ JT.commands["deletetitlecol"] = {
             for (var i = 0; i < table.rows.length; i++) {
                 JUtils.remove(table.rows[i].children[0])
             }
-        }else{
+        } else {
             console.log('当前不存在标题列,无法删除');
         }
     }
@@ -697,51 +697,64 @@ JT.commands["deletetitlecol"] = {
 
 JT.commands["cellalign"] = {
     queryCommandState: function () {
-
+        var me = this,
+            table = me.tableInfo && me.tableInfo.table,
+            selectIds = me.selectedTds;
+        return table && selectIds && selectIds.length > 0 ? 0 : -1;
     },
     execCommand: function (cmd, align) {
-        var me = this;
-        var doc = me.document || document;
-        var table = doc.getElementById('tableInstant' + me.uid);
-        if (table && table.nodeType == 1) {
-            //var selectedTds = this.getSelectedArr(this);
+        var me = this,
+            table = me.tableInfo && me.tableInfo.table,
+            result = me.queryCommandState('cellalign') == 0;
+        if (result && table && table.nodeType == 1) {
             var selectedTds = this.selectedTds;
             if (selectedTds && selectedTds.length) {
                 for (var i = 0, ci; ci = selectedTds[i++];) {
                     ci.setAttribute('align', align);
                 }
             }
+        } else {
+            console.log('尚未选择单元格,无法设置');
         }
     }
 };
 JT.commands["cellvalign"] = {
     queryCommandState: function () {
-
+        var me = this,
+            table = me.tableInfo && me.tableInfo.table,
+            selectIds = me.selectedTds;
+        return table && selectIds && selectIds.length > 0 ? 0 : -1;
     },
     execCommand: function (cmd, align) {
-        var me = this;
-        var doc = me.document || document;
-        var table = doc.getElementById('tableInstant' + me.uid);
-        if (table && table.nodeType == 1) {
+        var me = this, table = me.tableInfo && me.tableInfo.table,
+            result = me.queryCommandState('cellvalign') == 0;
+        if (result && table && table.nodeType == 1) {
             var selectedTds = this.selectedTds;
             if (selectedTds && selectedTds.length) {
                 for (var i = 0, ci; ci = selectedTds[i++];) {
                     ci.setAttribute('vAlign', align);
                 }
             }
+        } else {
+            console.log('尚未选择单元格,无法设置');
         }
     }
 };
 JT.commands["insertrow"] = {
     queryCommandState: function () {
-
+        var me = this,
+            table = me.tableInfo && me.tableInfo.table;
+        return table == null ? -1 : 0;
     },
     execCommand: function () {
-        var me = this, tableItems = this.getTableItemsByRange(this),
-            cell = tableItems.cell;
-        if (!cell.length) {
-            var rowIndex = JUtils.findParentByTagName(cell, 'TR').rowIndex;
-            this.insertRow(rowIndex, cell);
+        var me = this,
+            tableInfo = this.tableInfo,
+            table = tableInfo && this.tableInfo.table,
+            cell = this.selectedTds;
+        if (!cell) {
+            var TRs = JUtils.getElementsByTagName(table, 'TR'),
+                rowIndex = TRs[TRs.length - 1].rowIndex;
+            tableInfo.insertRow(rowIndex, cell);
         } else {
             var range = this.range;
             for (var i = 0, len = range.endRowIndex - range.beginRowIndex + 1; i < len; i++) {
@@ -752,23 +765,27 @@ JT.commands["insertrow"] = {
 };
 JT.commands["insertrownext"] = {
     queryCommandState: function () {
-
+        var me = this,
+            table = me.tableInfo && me.tableInfo.table;
+        return table == null ? -1 : 0;
     },
     execCommand: function () {
         var me = this,
-        //tableItems = this.getTableItemsByRange(this),
-            cell = this.selectedTds, rowIndexs = [0], rowSpan = 0;
-
-        for (var i = 0; i < cell.length; i++) {
-            var rowIndex = JUtils.findParentByTagName(cell[i], 'TR').rowIndex;
-            rowIndexs.push(rowIndex);
-        }
-        rowIndexs.sort();
-        rowSpan = rowIndexs[rowIndexs.length - 1] - rowIndexs[0];
-        if (!cell.length) {
-            var rowIndex = JUtils.findParentByTagName(cell, 'TR').rowIndex;
-            this.insertRow(rowIndex + rowSpan, cell);
+            tableInfo = this.tableInfo,
+            cell = this.selectedTds,
+            rowIndexs = [0],
+            rowSpan = 0;
+        if (!cell) {
+            var TRs = JUtils.getElementsByTagName(table, 'TR'),
+                rowIndex = TRs[TRs.length - 1].rowIndex;
+            tableInfo.insertRow(rowIndex + rowSpan, cell);
         } else {
+            for (var i = 0; i < cell.length; i++) {
+                var rowIndex = JUtils.findParentByTagName(cell[i], 'TR').rowIndex;
+                rowIndexs.push(rowIndex);
+            }
+            rowIndexs.sort();
+            rowSpan = rowIndexs[rowIndexs.length - 1] - rowIndexs[0];
             var range = this.range;
             for (var i = 0, len = range.endRowIndex - range.beginRowIndex + 1; i < len; i++) {
                 this.insertRow(range.endRowIndex + 1, cell[i]);
@@ -778,16 +795,17 @@ JT.commands["insertrownext"] = {
 };
 JT.commands["insertcol"] = {
     queryCommandState: function () {
-
+        var me = this,
+            table = me.tableInfo && me.tableInfo.table;
+        return table == null ? -1 : 0;
     },
     execCommand: function () {
         var me = this,
-        //tableItems = this.getTableItemsByRange(this),
-        //cell = tableItems.cell;
+            tableInfo = this.tableInfo,
+            table = tableInfo && tableInfo.table,
             cell = this.selectedTds;
-        if (!cell.length) {
-            //var rowIndex=me.document.findParentByTagName(cell,'TR').rowIndex;
-            this.insertCol(cell.colIndex, cell);
+        if (!cell) {
+            tableInfo && tableInfo.insertCol(0, cell);
         } else {
             var range = this.range;
             for (var i = 0, len = range.endColIndex - range.beginColIndex + 1; i < len; i++) {
@@ -798,16 +816,18 @@ JT.commands["insertcol"] = {
 };
 JT.commands["insertcolnext"] = {
     queryCommandState: function () {
-
+        var me = this,
+            table = me.tableInfo && me.tableInfo.table;
+        return table == null ? -1 : 0;
     },
     execCommand: function () {
         var me = this,
-        //tableItems = this.getTableItemsByRange(this),
-        //cell = tableItems.cell;
+            tableInfo = this.tableInfo,
+            table = tableInfo && tableInfo.table,
             cell = this.selectedTds;
-        if (!cell.length) {
-            var colIndex = me.document.findParentByTagName(cell, 'TR').colIndex;
-            this.insertCol(colIndex, cell);
+        if (!cell) {
+            var length = table.rows[0].cells.length;
+            tableInfo.insertCol(length, cell);
         } else {
             var range = this.range;
             for (var i = 0, len = range.endColIndex - range.beginColIndex + 1; i < len; i++) {
@@ -818,16 +838,19 @@ JT.commands["insertcolnext"] = {
 };
 JT.commands["deleterow"] = {
     queryCommandState: function () {
-
+        var me = this,
+            table = me.tableInfo && me.tableInfo.table,
+            selectTds = me.selectedTds;
+        return table && selectTds ? 0 : -1;
     },
     execCommand: function (cmd, opt) {
         var me = this,
-        //tableItems = this.getTableItemsByRange(this),
-        //cell = tableItems.cell;
+            tableInfo = me.tableInfo,
+            table = tableInfo && me.tableInfo.table,
             cell = this.selectedTds;
-        if (!cell.length) {
-            var row = me.document.findParentByTagName(cell, 'TR').rowIndex;
-            this.deleteRow(row);
+        if (!cell) {
+            var row = table.rows[0].rowIndex;
+            tableInfo.deleteRow(row);
         } else {
             var range = this.range;
             for (var i = 0, len = range.endRowIndex - range.beginRowIndex + 1; i < len; i++) {
@@ -838,15 +861,19 @@ JT.commands["deleterow"] = {
 };
 JT.commands["deletecol"] = {
     queryCommandState: function () {
-
+        var me = this,
+            table = me.tableInfo && me.tableInfo.table,
+            selectTds = me.selectedTds;
+        return table && selectTds ? 0 : -1;
     },
     execCommand: function (cmd, opt) {
         var me = this,
-        //tableItems = this.getTableItemsByRange(this),
-        //cell = tableItems.cell;
+            tableInfo=me.tableInfo,
+            table=tableInfo && tableInfo.table,
             cell = this.selectedTds;
-        if (!cell.length) {
-            this.deleteRow(cell.colIndex);
+        if (!cell) {
+            var length = table.rows[0].cells.length;
+            tableInfo.deleteCol(length-1);
         } else {
             var range = this.range;
             for (var i = 0, len = range.endColIndex - range.beginColIndex + 1; i < len; i++) {
@@ -1025,6 +1052,26 @@ function getJTable(tdOrTable) {
 JAction = JTable.JAction = function () {
 }
 JAction.prototype = {
+    getLastCell: function (cells) {
+        cells = cells || this.table.getElementsByTagName("td");
+        var firstInfo = this.getCellInfo(cells[0]);
+        var me = this, last = cells[0],
+            tr = last.parentNode,
+            cellsNum = 0, cols = 0, rows;
+        JUtils.each(cells, function (cell) {
+            if (cell.parentNode == tr)cols += cell.colSpan || 1;
+            cellsNum += cell.rowSpan * cell.colSpan || 1;
+        });
+        rows = cellsNum / cols;
+        JUtils.each(cells, function (cell) {
+            if (me.isLastCell(cell, rows, cols)) {
+                last = cell;
+                return false;
+            }
+        });
+        return last;
+
+    },
     getPreviewMergedCellsNum: function (rowIndex, colIndex) {
         var indexRow = this.indexTable[rowIndex],
             num = 0;
@@ -2070,6 +2117,17 @@ JAction.prototype = {
     },
 };
 var JUtils = JT.JUtils = {
+    /**
+     * 在节点node后面插入新节点newNode
+     * @method insertAfter
+     * @param { Node } node 目标节点
+     * @param { Node } newNode 新插入的节点， 该节点将置于目标节点之后
+     * @return { Node } 新插入的节点
+     */
+    insertAfter:function (node, newNode) {
+        return node.nextSibling ? node.parentNode.insertBefore(newNode, node.nextSibling):
+            node.parentNode.appendChild(newNode);
+    },
 
     /**
      * 判断给定的元素是否是一个空元素
